@@ -14,8 +14,8 @@ services:
 
   userbot:
     build:
-      context: ./userbot.Dockerfile
-      dockerfile: Dockerfile
+      context: ./
+      dockerfile: userbot.Dockerfile
     container_name: user_bot
     restart: always
     working_dir: /app
