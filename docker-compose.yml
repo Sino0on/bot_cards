@@ -21,4 +21,5 @@ services:
     working_dir: /app
     volumes:
       - .:/app              # Монтируем весь проект
+    command: ["python", "userbot.py"]
 
