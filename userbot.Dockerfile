@@ -17,4 +17,4 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 
 # Запускаем бота
-CMD ["python", "moy/moy.py"]
+CMD ["python", "userbot.py"]
