@@ -11,3 +11,14 @@ services:
     volumes:
       - .:/app              # Монтируем весь проект
     command: ["python", "bot.py"]
+
+  userbot:
+    build:
+      context: ./userbot.Dockerfile
+      dockerfile: Dockerfile
+    container_name: user_bot
+    restart: always
+    working_dir: /app
+    volumes:
+      - .:/app              # Монтируем весь проект
+

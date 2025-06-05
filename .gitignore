@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+userbot.session
+
 # C extensions
 *.so
 data.json

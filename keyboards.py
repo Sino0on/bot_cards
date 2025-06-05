@@ -1,24 +1,36 @@
 from aiogram import types
 from aiogram.types import KeyboardButton
 
+from services.validators import check_admin, check_manager
+
 
 def get_keyboard_buttons(user_id: int = None):
-    buttons = [
-        [
-            KeyboardButton(text="📊 Информация по счету"),
-            KeyboardButton(text="📇 Баланс счёта"),
-        ],
-        [
-            KeyboardButton(text="💳 Виртуальная карта"),
-            KeyboardButton(text="📝 Оставить отзыв"),
-        ],
-    ]
+    buttons = []
 
-    if user_id == 795677145:
+    if check_manager(user_id):
         buttons.append([
-            KeyboardButton(text="✍️ Отправить рассылку"),
-            KeyboardButton(text="🧠 Добавить менеджера"),
+            KeyboardButton(text="💳 Добавить карту"),
+            KeyboardButton(text="💳 Мои карты"),
+            KeyboardButton(text="📄 Мои транзакции")
+
+
+        ])
+        buttons.append([
+            KeyboardButton(text="💼 Баланс карт"),
+            KeyboardButton(text="💰 Мой баланс")
         ])
 
-    keyboard = types.ReplyKeyboardMarkup(keyboard=buttons)
+    if check_admin(user_id):
+        buttons.append([
+            KeyboardButton(text="🧠 Добавить менеджера"),
+            KeyboardButton(text="👨‍💼 Операторы"),
+            KeyboardButton(text="⚙️ Настройки системы")
+        ])
+        buttons.append([
+            KeyboardButton(text="💬 Чаты"),  # управление чатами
+            KeyboardButton(text="📊 Балансы"),  # управление чатами
+            KeyboardButton(text="🧾 История по операторам")
+        ])
+
+    keyboard = types.ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
     return keyboard

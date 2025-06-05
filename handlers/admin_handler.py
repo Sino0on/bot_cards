@@ -1,0 +1,635 @@
+from datetime import datetime
+
+from aiogram import Router, F
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+from decouple import config
+
+from keyboards import get_keyboard_buttons
+from services.json_writer import save_manager, edit_card_number, load_data, get_all_chats, toggle_chat_status, \
+    delete_chat, get_chat_status, update_request_status, get_request_by_id, credit_operator_bonus, set_operator_active
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from services.json_writer import get_cards_for_manager
+from services.validators import check_admin
+
+router = Router()
+
+
+
+class AdminCreateChatFSM(StatesGroup):
+    waiting_for_chat_id = State()
+    waiting_for_chat_title = State()
+
+class AddOperatorFSM(StatesGroup):
+    choosing_chat = State()
+    selecting_operator = State()
+
+
+
+
+
+@router.message(F.text == "💬 Чаты")
+async def admin_chats_menu(message: Message):
+    if not check_admin(message.from_user.id):
+        return
+
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="➕ Добавить чат")],
+            [KeyboardButton(text="➕ Добавить оператора в чат")],
+            [KeyboardButton(text="➖ Удалить оператора из чата")],
+            [KeyboardButton(text="📋 Список чатов")],
+            [KeyboardButton(text="🔙 Назад")]
+        ],
+        resize_keyboard=True
+    )
+    await message.answer("Управление чатами:", reply_markup=kb)
+
+
+@router.message(F.text == "➕ Добавить чат")
+async def add_chat_start(message: Message, state: FSMContext):
+    await message.answer("Введи ID группы (без -100 в начале):", reply_markup=ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
+    ))
+    await state.set_state(AdminCreateChatFSM.waiting_for_chat_id)
+
+
+@router.message(AdminCreateChatFSM.waiting_for_chat_id)
+async def add_chat_id(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Добавление нового чата отменена.",
+                             reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+    if not message.text.strip().isdigit():
+        await message.answer("❗ Введи только числа.")
+        return
+    await state.update_data(chat_id=int(message.text.strip()))
+    await message.answer("Теперь введи название чата:")
+    await state.set_state(AdminCreateChatFSM.waiting_for_chat_title)
+
+
+from services.json_writer import add_chat  # мы его уже писали выше
+
+@router.message(AdminCreateChatFSM.waiting_for_chat_title)
+async def add_chat_title(message: Message, state: FSMContext):
+    data = await state.get_data()
+    success = add_chat(data["chat_id"], message.text.strip())
+    if success:
+        await message.answer("✅ Чат добавлен.", reply_markup=get_keyboard_buttons(message.from_user.id))
+    else:
+        await message.answer("⚠️ Такой чат уже существует.", reply_markup=get_keyboard_buttons(message.from_user.id))
+    await state.clear()
+
+
+@router.message(F.text == "➕ Добавить оператора в чат")
+async def start_add_operator(message: Message, state: FSMContext):
+    from services.json_writer import get_chats_with_names
+
+    buttons = [
+        [KeyboardButton(text=chat["name"])] for chat in get_chats_with_names()
+
+    ]
+    buttons.append([KeyboardButton(text="❌ Отмена")])
+
+    markup = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    await message.answer("Выберите чат, в который хотите добавить оператора:", reply_markup=markup)
+    await state.set_state(AddOperatorFSM.choosing_chat)
+
+
+
+@router.message(AddOperatorFSM.choosing_chat)
+async def choose_chat(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Добавление отменена.",
+                             reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    from services.json_writer import get_chat_by_name, get_all_managers
+    chat = get_chat_by_name(message.text.strip())
+
+    if not chat:
+        await message.answer("❌ Чат не найден. Попробуйте снова.")
+        return
+
+    await state.update_data(chat_id=chat["id"], chat_name=chat["name"])
+
+    # Показываем список операторов
+    buttons = []
+    for m in get_all_managers():
+        name = m.get("name", f"ID {m['id']}")
+        buttons.append([KeyboardButton(text=f"{name} ({m['id']})")])
+
+    buttons.append([KeyboardButton(text="✅ Готово"), KeyboardButton(text="❌ Отмена")])
+    markup = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    await message.answer("Выберите операторов, которых хотите добавить в чат:", reply_markup=markup)
+    await state.set_state(AddOperatorFSM.selecting_operator)
+
+
+
+
+from services.json_writer import assign_operators_to_chat  # создадим
+
+@router.message(AddOperatorFSM.selecting_operator)
+async def select_operator_to_add(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Добавление отменена.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    if message.text == "✅ Готово":
+        await state.clear()
+        await message.answer("✅ Добавление завершено.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    try:
+        operator_id = int(message.text.strip().split("(")[-1].replace(")", ""))
+    except:
+        await message.answer("❗ Неверный формат. Выберите из списка.")
+        return
+
+    data = await state.get_data()
+    from services.json_writer import add_operator_to_chat
+
+    success = add_operator_to_chat(chat_id=data["chat_id"], operator_id=operator_id)
+    if success:
+        await message.answer(f"✅ Оператор {operator_id} добавлен в чат.")
+    else:
+        await message.answer("⚠️ Уже добавлен.")
+
+
+
+
+# @router.message(F.text == "📋 Список чатов")
+# async def show_chats(message: Message):
+#     data = load_data()
+#     if not data.get("chats"):
+#         await message.answer("Нет чатов.")
+#         return
+#
+#     text = "📋 Чаты:\n\n"
+#     for chat in data["chats"]:
+#         text += f"💬 {chat['name']} (ID: {chat['id']})\n"
+#         text += "👥 Операторы: " + ", ".join(str(m) for m in chat.get("managers", [])) + "\n\n"
+#
+#     await message.answer(text)
+
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+@router.message(F.text == "📋 Список чатов")
+async def show_chats_buttons(message: Message):
+    chats = get_all_chats()
+    if not chats:
+        await message.answer("📭 Нет добавленных чатов.")
+        return
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=f"{c['name']} ({'✅' if c.get('status', True) else '❌'})",
+                callback_data=f"chat_{c['id']}"
+            )]
+            for c in chats
+        ]
+    )
+
+    await message.answer("Выбери чат для управления:", reply_markup=keyboard)
+
+@router.callback_query(F.data.startswith("chat_"))
+async def manage_single_chat(callback: CallbackQuery):
+    chat_id = int(callback.data.split("_")[1])
+    status = get_chat_status(chat_id)
+
+    from services.json_writer import load_data
+    from collections import defaultdict
+
+    data = load_data()
+    chat = next((c for c in data["chats"] if c["id"] == chat_id), None)
+
+    text = f"💬 Управление чатом ID: {chat_id}\n\n"
+
+    txs = chat.get("transactions", []) if chat else []
+    if not txs:
+        text += "📭 В этом чате нет активных транзакций."
+    else:
+        by_operator = defaultdict(lambda: defaultdict(list))
+        for tx in txs:
+            by_operator[tx["operator"]][tx.get("card", "****")].append(tx)
+
+        total_kgs = 0
+        for op_id, cards in by_operator.items():
+            manager = next((m for m in data["managers"] if m["id"] == op_id), {})
+            op_name = manager.get("name", f"ID {op_id}")
+            text += f"🧾 Международные переводы {op_name}\n"
+            for card, tx_list in cards.items():
+                text += f"💳 {card}\n"
+                for tx in tx_list:
+                    dt = tx.get("timestamp", "—")
+                    amt = tx["money"]
+                    total_kgs += amt
+                    text += f"🔹 ({dt}) {amt} KGS ✅\n"
+            text += "\n"
+
+        rate = data.get("settings", {}).get("usdt_rate", 89)
+        usd = round(total_kgs / rate, 2)
+        after_fee = round(usd * 0.88, 2)
+
+        text += f"📑 Общая сумма KGS: {total_kgs} KGS\n"
+        text += f"🧾 ({len(txs)} инвойсов)\n\n"
+        text += f"{total_kgs} / {rate} = {usd}\n"
+        text += f"{usd} - 12% = {after_fee}"
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Изменить операторов", callback_data=f"editop_{chat_id}")],
+        [InlineKeyboardButton(
+            text="🔴 Выключить" if status else "🟢 Включить",
+            callback_data=f"toggle_{chat_id}"
+        )],
+        [InlineKeyboardButton(text="🗑 Удалить чат", callback_data=f"delchat_{chat_id}")]
+    ])
+
+    await callback.message.answer(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+
+@router.callback_query(F.data.startswith("toggle_"))
+async def toggle_status(callback: CallbackQuery):
+    chat_id = int(callback.data.split("_")[1])
+    new_status = toggle_chat_status(chat_id)
+    if new_status is not None:
+        status_text = "🟢 включен" if new_status else "🔴 выключен"
+        await callback.message.answer(f"Чат теперь {status_text}.")
+    else:
+        await callback.message.answer("❌ Чат не найден.")
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("delchat_"))
+async def delete_chat_handler(callback: CallbackQuery):
+    chat_id = int(callback.data.split("_")[1])
+    success = delete_chat(chat_id)
+    if success:
+        await callback.message.answer("🗑 Чат удалён.")
+    else:
+        await callback.message.answer("❌ Не удалось удалить чат.")
+    await callback.answer()
+
+
+@router.message(F.text == "📊 Балансы")
+async def admin_balance_menu(message: Message):
+    if not check_admin(message.from_user.id):
+        return
+
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="👥 Баланс по операторам")],
+            [KeyboardButton(text="💬 Баланс по чатам")],
+            [KeyboardButton(text="🔙 Назад")]
+        ],
+        resize_keyboard=True
+    )
+    await message.answer("Выбери тип баланса:", reply_markup=kb)
+
+
+@router.message(F.text == "👥 Баланс по операторам")
+async def balance_operators(message: Message):
+    from services.json_writer import get_operators_balances
+    results = get_operators_balances()
+
+    if not results:
+        await message.answer("Нет операторов.")
+        return
+
+    text = "👥 Балансы операторов:\n\n"
+    for op in results:
+        text += f"{op['name']} ({op['id']}): {op['balance']} сом\n"
+
+    await message.answer(text)
+
+
+@router.message(F.text == "💬 Баланс по чатам")
+async def balance_chats(message: Message):
+    from services.json_writer import get_chats_balances
+    results = get_chats_balances()
+
+    if not results:
+        await message.answer("Нет чатов.")
+        return
+
+    text = "💬 Балансы чатов:\n\n"
+    for ch in results:
+        text += f"{ch['name']} ({ch['id']}): {ch['balance']} сом\n"
+
+    await message.answer(text)
+
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+@router.message(F.text == "🧾 История по операторам")
+async def select_operator_for_history(message: Message):
+    from services.json_writer import load_data
+    data = load_data()
+
+    if not data.get("managers"):
+        await message.answer("Нет операторов.")
+        return
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=f"{m['name']} ({m['id']})", callback_data=f"txhistory_{m['id']}")]
+            for m in data["managers"]
+        ]
+    )
+
+    await message.answer("Выбери оператора для просмотра истории:", reply_markup=keyboard)
+
+
+@router.callback_query(F.data.startswith("txhistory_"))
+async def show_operator_report_options(callback: CallbackQuery):
+    operator_id = callback.data.split("_")[1]
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📆 Сегодня", callback_data=f"txrange_{operator_id}_1")],
+        [InlineKeyboardButton(text="📅 Последние 7 дней", callback_data=f"txrange_{operator_id}_7")],
+        [InlineKeyboardButton(text="🗓️ Последние 30 дней", callback_data=f"txrange_{operator_id}_30")]
+    ])
+    await callback.message.answer(f"Выбери период для отчёта по оператору {operator_id}:", reply_markup=kb)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("txrange_"))
+async def report_by_date(callback: CallbackQuery):
+    parts = callback.data.split("_")
+    operator_id = int(parts[1])
+    days = int(parts[2])
+
+    from services.json_writer import get_transactions_by_operator
+    txs = get_transactions_by_operator(operator_id, days=days)
+
+    if not txs:
+        await callback.message.answer("❌ За выбранный период нет транзакций.")
+        await callback.answer()
+        return
+
+    text = f"🧾 Транзакции за {days} дн. по оператору {operator_id}:\n\n"
+    total = 0
+
+    for tx in txs:
+        total += tx["amount"]
+        time = datetime.fromisoformat(tx["timestamp"]).strftime("%d.%m %H:%M")
+        text += f"🕒 {time}\n💬 {tx['chat_name']}\n💳 {tx['card']}\n💰 {tx['amount']} сом\n\n"
+
+    text += f"🧮 Итого: {total} сом"
+    await callback.message.answer(text)
+    await callback.answer()
+
+
+from aiogram.fsm.state import State, StatesGroup
+
+class SettingsFSM(StatesGroup):
+    waiting_for_address = State()
+    waiting_for_limit = State()
+    waiting_for_usdt_rate = State()
+
+
+from aiogram import types
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.fsm.context import FSMContext
+from services.json_writer import get_settings
+
+@router.message(F.text == "⚙️ Настройки системы")
+async def settings_menu(message: types.Message):
+    settings = get_settings()
+    address = settings.get("address", "—")
+    limit = settings.get("limit", "—")
+
+    text = (
+        f"⚙️ <b>Текущие настройки</b>:\n"
+        f"🏦 Адрес: <code>{address}</code>\n"
+        f"💰 Лимит: {limit} USD\n\n"
+        f"Выберите, что хотите изменить:"
+    )
+
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="✏️ Изменить адрес")],
+            [KeyboardButton(text="✏️ Изменить лимит")],
+            [KeyboardButton(text="💱 Изменить курс USDT")],
+            [KeyboardButton(text="🔙 Назад")]
+        ],
+        resize_keyboard=True
+    )
+
+    await message.answer(text, reply_markup=kb, parse_mode="HTML")
+
+
+
+from services.json_writer import update_address
+
+@router.message(F.text == "✏️ Изменить адрес")
+async def change_address(message: types.Message, state: FSMContext):
+    await message.answer("Введите новый адрес:", reply_markup=ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
+    ))
+    await state.set_state(SettingsFSM.waiting_for_address)
+
+@router.message(SettingsFSM.waiting_for_address)
+async def save_address(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отмена.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    update_address(message.text.strip())
+    await state.clear()
+    await message.answer("✅ Адрес обновлён.", reply_markup=get_keyboard_buttons(message.from_user.id))
+
+
+from services.json_writer import update_limit
+
+@router.message(F.text == "✏️ Изменить лимит")
+async def change_limit(message: types.Message, state: FSMContext):
+    await message.answer("Введите новый лимит (число):", reply_markup=ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
+    ))
+    await state.set_state(SettingsFSM.waiting_for_limit)
+
+@router.message(SettingsFSM.waiting_for_limit)
+async def save_limit(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отмена.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    try:
+        new_limit = float(message.text.strip())
+    except ValueError:
+        await message.answer("❗ Введите корректное число.")
+        return
+
+    update_limit(new_limit)
+    await state.clear()
+    await message.answer(f"✅ Лимит обновлён до {new_limit} USDT.", reply_markup=get_keyboard_buttons(message.from_user.id))
+
+
+@router.message(F.text == "💱 Изменить курс USDT")
+async def change_usdt_rate(message: Message, state: FSMContext):
+    await message.answer("Введите новый курс USDT:", reply_markup=ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
+    ))
+    await state.set_state(SettingsFSM.waiting_for_usdt_rate)
+
+@router.message(SettingsFSM.waiting_for_usdt_rate)
+async def save_usdt_rate(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отменено.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    try:
+        rate = float(message.text.strip())
+    except ValueError:
+        await message.answer("❗ Введите корректное число.")
+        return
+
+    from services.json_writer import update_usdt_rate
+    update_usdt_rate(rate)
+
+    await state.clear()
+    await message.answer(f"✅ Курс USDT обновлён: {rate}", reply_markup=get_keyboard_buttons(message.from_user.id))
+
+
+@router.callback_query(F.data.startswith("approve_request:"))
+async def approve_request(callback: CallbackQuery):
+    request_id = int(callback.data.split(":")[1])
+    req = get_request_by_id(request_id)
+
+    if not req or req["status"] != "pending":
+        await callback.answer("❌ Заявка не найдена или уже обработана", show_alert=True)
+        return
+
+    # Обновим статус
+    update_request_status(request_id, "approved")
+
+    # Рассчитываем бонус
+    bonus = round(req["usd"] * 0.06, 8)
+
+    # Начисляем бонус и активируем
+    credit_operator_bonus(req["operator_id"], bonus)
+    set_operator_active(req["operator_id"], True)
+
+    # Отправка сообщения оператору
+    try:
+        await callback.bot.send_message(
+            chat_id=req["operator_id"],
+            text=f"💸 Баланс пополнен на ${bonus}"
+        )
+    except Exception as e:
+        print(f"[ERROR] Не удалось отправить сообщение оператору {req['operator_id']}: {e}")
+
+    # Обновляем сообщение в админ-чате
+    await callback.message.edit_text(
+        callback.message.text + f"\n\n✅ <b>Заявка подтверждена</b>\n💸 Бонус: {bonus} $",
+        parse_mode="HTML"
+    )
+    await callback.answer("✅ Заявка принята")
+
+
+
+@router.callback_query(F.data.startswith("decline_request:"))
+async def decline_request(callback: CallbackQuery):
+    request_id = int(callback.data.split(":")[1])
+    req = get_request_by_id(request_id)
+
+    if not req or req["status"] != "pending":
+        await callback.answer("❌ Заявка не найдена или уже обработана", show_alert=True)
+        return
+
+    update_request_status(request_id, "declined")
+
+    await callback.message.edit_text(
+        callback.message.text + f"\n\n❌ <b>Заявка отклонена</b>",
+        parse_mode="HTML"
+    )
+    await callback.answer("❌ Заявка отклонена")
+
+
+class RemoveOperatorFSM(StatesGroup):
+    choosing_chat = State()
+    choosing_operator = State()
+
+
+@router.message(F.text == "➖ Удалить оператора из чата")
+async def start_remove_operator(message: Message, state: FSMContext):
+    from services.json_writer import get_chats_with_names
+
+    buttons = [[KeyboardButton(text=chat["name"])] for chat in get_chats_with_names()]
+    buttons.append([KeyboardButton(text="❌ Отмена")])
+    markup = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    await message.answer("Выберите чат, из которого хотите удалить оператора:", reply_markup=markup)
+    await state.set_state(RemoveOperatorFSM.choosing_chat)
+
+
+@router.message(RemoveOperatorFSM.choosing_chat)
+async def choose_chat_to_remove(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отменено.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+    from services.json_writer import get_chat_by_name, get_manager_name_by_id
+    chat = get_chat_by_name(message.text.strip())
+
+    if not chat:
+        await message.answer("❌ Чат не найден.")
+        return
+
+    if not chat["managers"]:
+        await message.answer("❗ В этом чате нет операторов.")
+        await state.clear()
+        return
+
+    await state.update_data(chat_id=chat["id"], chat_name=chat["name"])
+
+    buttons = [
+        [KeyboardButton(text=f"{manager_id} — {get_manager_name_by_id(manager_id) or 'Без имени'}")]
+        for manager_id in chat["managers"]
+    ]
+    buttons.append([KeyboardButton(text="❌ Отмена")])
+    markup = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+    await message.answer("Выберите оператора для удаления:", reply_markup=markup)
+    await state.set_state(RemoveOperatorFSM.choosing_operator)
+
+
+@router.message(RemoveOperatorFSM.choosing_operator)
+async def remove_operator(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отменено.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+    operator_line = message.text.strip()
+    operator_id = operator_line.split("—")[0].strip()
+
+    if not operator_id.isdigit():
+        await message.answer("❗ Неверный формат. Попробуйте снова.")
+        return
+
+    data = await state.get_data()
+    from services.json_writer import remove_operator_from_chat
+
+    success = remove_operator_from_chat(chat_id=data["chat_id"], operator_id=int(operator_id))
+    if success:
+        await message.answer(f"🗑 Оператор `{operator_id}` удалён из чата *{data['chat_name']}*", parse_mode="Markdown")
+    else:
+        await message.answer("❌ Не удалось удалить. Возможно, такого оператора нет.")
+
+    await state.clear()
