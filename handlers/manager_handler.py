@@ -577,15 +577,18 @@ async def group_balance_report(message: Message):
         lines.append("")
 
     # 2. Итоги
+    data = load_data()
+    procent = data.get("settings", {}).get("procent", 12)
     usd = round(total_kgs / rate, 2)
-    company_cut = round(usd * 0.12, 2)
+    company_cut = round(usd * procent / 100, 2)
+
     final_usd = round(usd - company_cut, 2)
 
     lines.append(f"📊 <b>Общая сумма: {total_kgs} KGS</b>")
     lines.append(f"🧾 ({len(transactions)} инвойсов)")
     lines.append("")
     lines.append(f"{total_kgs} / {rate} = <b>{usd} USD</b>")
-    lines.append(f"{usd} - 12% = <b>{final_usd} USD</b>")
+    lines.append(f"{usd} - {procent}% = <b>{final_usd} USD</b>")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Вывод готов", callback_data=f"group_withdraw:{chat_id}")]
@@ -620,10 +623,21 @@ async def handle_group_withdraw(callback: CallbackQuery):
 
     # Считаем общую сумму
     total_kgs = sum(tx["amount"] for tx in transactions)
+    procent = settings.get("procent", 12)  # комиссия компании
+    procent_bonus = settings.get("procent_bonus", 6)  # бонус оператору
+    rate = settings.get("usdt_rate", 89)
+
+    # Переводим в USD
     usd = round(total_kgs / rate, 2)
-    company_cut = round(usd * 0.12, 2)
+
+    # Считаем, сколько забирает компания
+    company_cut = round(usd * (procent / 100), 2)
+
+    # Сумма после комиссии
     final_usd = round(usd - company_cut, 2)
-    operator_bonus_total = round(company_cut / 2, 8)
+
+    # Считаем бонус оператору
+    operator_bonus_total = round(usd * (procent_bonus / 100), 8)
 
     # Начислим 6% операторам
     operator_map = {}

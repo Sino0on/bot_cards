@@ -295,6 +295,20 @@ def update_limit(new_limit: float):
     with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
+
+def update_procent(new_limit: float):
+    data = load_data()
+    data.setdefault("settings", {})["procent"] = new_limit
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def update_procent_bonus(new_limit: float):
+    data = load_data()
+    data.setdefault("settings", {})["procent_bonus"] = new_limit
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
 def get_usdt_rate() -> float:
     data = load_data()
     return data.get("settings", {}).get("usdt_rate", 89.0)

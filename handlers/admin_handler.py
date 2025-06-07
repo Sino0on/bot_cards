@@ -8,7 +8,8 @@ from decouple import config
 
 from keyboards import get_keyboard_buttons
 from services.json_writer import save_manager, edit_card_number, load_data, get_all_chats, toggle_chat_status, \
-    delete_chat, get_chat_status, update_request_status, get_request_by_id, credit_operator_bonus, set_operator_active
+    delete_chat, get_chat_status, update_request_status, get_request_by_id, credit_operator_bonus, set_operator_active, \
+    update_procent, update_procent_bonus
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services.json_writer import get_cards_for_manager
@@ -237,13 +238,14 @@ async def manage_single_chat(callback: CallbackQuery):
             text += "\n"
 
         rate = data.get("settings", {}).get("usdt_rate", 89)
+        procent = data.get("settings", {}).get("procent", 12)
         usd = round(total_kgs / rate, 2)
-        after_fee = round(usd * 0.88, 2)
+        after_fee = round(usd * (1 - procent / 100), 2)
 
         text += f"📑 Общая сумма KGS: {total_kgs} KGS\n"
         text += f"🧾 ({len(txs)} инвойсов)\n\n"
         text += f"{total_kgs} / {rate} = {usd}\n"
-        text += f"{usd} - 12% = {after_fee}"
+        text += f"{usd} - {procent}% = {after_fee}"
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✏️ Изменить операторов", callback_data=f"editop_{chat_id}")],
@@ -394,6 +396,8 @@ from aiogram.fsm.state import State, StatesGroup
 class SettingsFSM(StatesGroup):
     waiting_for_address = State()
     waiting_for_limit = State()
+    waiting_for_bonus = State()
+    waiting_for_bonus_procent = State()
     waiting_for_usdt_rate = State()
 
 
@@ -419,6 +423,8 @@ async def settings_menu(message: types.Message):
         keyboard=[
             [KeyboardButton(text="✏️ Изменить адрес")],
             [KeyboardButton(text="✏️ Изменить лимит")],
+            [KeyboardButton(text="✏️ Изменить процент")],
+            [KeyboardButton(text="✏️ Изменить процент бонуса")],
             [KeyboardButton(text="💱 Изменить курс USDT")],
             [KeyboardButton(text="🔙 Назад")]
         ],
@@ -479,6 +485,59 @@ async def save_limit(message: types.Message, state: FSMContext):
     await message.answer(f"✅ Лимит обновлён до {new_limit} USDT.", reply_markup=get_keyboard_buttons(message.from_user.id))
 
 
+@router.message(F.text == "✏️ Изменить процент")
+async def change_limit(message: types.Message, state: FSMContext):
+    await message.answer("Введите новый процент (число):", reply_markup=ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
+    ))
+    await state.set_state(SettingsFSM.waiting_for_limit)
+
+@router.message(SettingsFSM.waiting_for_limit)
+async def save_limit(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отмена.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    try:
+        new_limit = float(message.text.strip())
+    except ValueError:
+        await message.answer("❗ Введите корректное число.")
+        return
+
+    update_procent(new_limit)
+    await state.clear()
+    await message.answer(f"✅ Процент обновлён до {new_limit} USDT.", reply_markup=get_keyboard_buttons(message.from_user.id))
+
+
+
+@router.message(F.text == "✏️ Изменить процент бонуса")
+async def change_limit(message: types.Message, state: FSMContext):
+    await message.answer("Введите новый процент бонуса (число):", reply_markup=ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
+    ))
+    await state.set_state(SettingsFSM.waiting_for_bonus_procent)
+
+@router.message(SettingsFSM.waiting_for_bonus_procent)
+async def save_limit(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отмена.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    try:
+        new_limit = float(message.text.strip())
+    except ValueError:
+        await message.answer("❗ Введите корректное число.")
+        return
+
+    update_procent_bonus(new_limit)
+    await state.clear()
+    await message.answer(f"✅ Процент бонуса обновлён до {new_limit} USDT.", reply_markup=get_keyboard_buttons(message.from_user.id))
+
+
 @router.message(F.text == "💱 Изменить курс USDT")
 async def change_usdt_rate(message: Message, state: FSMContext):
     await message.answer("Введите новый курс USDT:", reply_markup=ReplyKeyboardMarkup(
@@ -520,7 +579,10 @@ async def approve_request(callback: CallbackQuery):
     update_request_status(request_id, "approved")
 
     # Рассчитываем бонус
-    bonus = round(req["usd"] * 0.06, 8)
+    settings = get_settings()
+    procent_bonus = settings.get("procent_bonus", 6)
+
+    bonus = round(req["usd"] * (procent_bonus / 100), 8)
 
     # Начисляем бонус и активируем
     credit_operator_bonus(req["operator_id"], bonus)
