@@ -411,11 +411,15 @@ async def settings_menu(message: types.Message):
     settings = get_settings()
     address = settings.get("address", "—")
     limit = settings.get("limit", "—")
+    procent = settings.get("procent", "—")
+    bonus = settings.get("procent_bonus", "—")
 
     text = (
         f"⚙️ <b>Текущие настройки</b>:\n"
         f"🏦 Адрес: <code>{address}</code>\n"
         f"💰 Лимит: {limit} USD\n\n"
+        f"💱 Процент: {procent}%\n\n"
+        f"💰 Процент бонуса: {bonus}%\n\n"
         f"Выберите, что хотите изменить:"
     )
 
