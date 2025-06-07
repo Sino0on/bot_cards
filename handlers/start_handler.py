@@ -20,12 +20,16 @@ router = Router()
 
 @router.message(Command("start"))
 async def command_start_handler(message: Message) -> None:
-    print(message.from_user.id)
+    if message.chat.id != message.from_user.id:
+        await message.answer(
+            f'Пиши в личку',
+            reply_markup=ReplyKeyboardRemove()
+        )
     user = find_manager_by_user_id(message.from_user.id)
     print(user)
     if user:
         await message.answer(
-            f'Здравствуйте, {user["name"]} 💙', reply_markup=get_keyboard_buttons(message.from_user.id)
+            f'Здравствуйте, {user["name"]}', reply_markup=get_keyboard_buttons(message.from_user.id)
         )
         return
     await message.answer(
