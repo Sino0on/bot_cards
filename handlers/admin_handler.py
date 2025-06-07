@@ -491,9 +491,9 @@ async def change_limit(message: types.Message, state: FSMContext):
         keyboard=[[KeyboardButton(text="❌ Отмена")]],
         resize_keyboard=True
     ))
-    await state.set_state(SettingsFSM.waiting_for_limit)
+    await state.set_state(SettingsFSM.waiting_for_bonus)
 
-@router.message(SettingsFSM.waiting_for_limit)
+@router.message(SettingsFSM.waiting_for_bonus)
 async def save_limit(message: types.Message, state: FSMContext):
     if message.text == "❌ Отмена":
         await state.clear()
@@ -508,7 +508,7 @@ async def save_limit(message: types.Message, state: FSMContext):
 
     update_procent(new_limit)
     await state.clear()
-    await message.answer(f"✅ Процент обновлён до {new_limit} USDT.", reply_markup=get_keyboard_buttons(message.from_user.id))
+    await message.answer(f"✅ Процент обновлён до {new_limit}%.", reply_markup=get_keyboard_buttons(message.from_user.id))
 
 
 
@@ -535,7 +535,7 @@ async def save_limit(message: types.Message, state: FSMContext):
 
     update_procent_bonus(new_limit)
     await state.clear()
-    await message.answer(f"✅ Процент бонуса обновлён до {new_limit} USDT.", reply_markup=get_keyboard_buttons(message.from_user.id))
+    await message.answer(f"✅ Процент бонуса обновлён до {new_limit}%.", reply_markup=get_keyboard_buttons(message.from_user.id))
 
 
 @router.message(F.text == "💱 Изменить курс USDT")
