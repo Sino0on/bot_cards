@@ -28,6 +28,8 @@ async def react_to_transaction(event: events.NewMessage.Event):
 
     # Проверяем чаты
     allowed_chats = get_active_chat_ids()
+    if '100' in str(abs(chat_id)):
+        chat_id = abs(int(str(abs(chat_id))[3:]))
     if abs(chat_id) not in allowed_chats:
         print(chat_id, allowed_chats)
         return

@@ -424,7 +424,7 @@ def get_operator_bonus_balance(user_id: int) -> float:
 def get_chat_by_id(chat_id: int):
     data = load_data()
     for chat in data.get("chats", []):
-        if chat["id"] == chat_id:
+        if chat["id"] == abs(chat_id):
             return chat
     return None
 
@@ -432,7 +432,7 @@ def get_chat_by_id(chat_id: int):
 def update_chat(chat_id: int, updated_chat: dict):
     data = load_data()
     for i, chat in enumerate(data.get("chats", [])):
-        if chat["id"] == chat_id:
+        if chat["id"] == abs(chat_id):
             data["chats"][i] = updated_chat
             save_data(data)
             return True
@@ -446,7 +446,7 @@ def add_group_withdraw_request(chat_id, chat_name, transactions, rate, company_c
     requests = data.setdefault("requests", [])
     request_id = len(requests) + 1
 
-    total_kgs = sum(tx["amount"] for tx in transactions)
+    total_kgs = sum(tx["money"] for tx in transactions)
     operator_list = []
     for op_id, (kgs, bonus) in operator_bonuses.items():
         manager = find_manager_by_user_id(op_id)
@@ -518,3 +518,14 @@ def get_manager_name_by_id(user_id):
 def get_all_managers():
     data = load_data()
     return data.get("managers", [])
+
+
+def deduct_from_card(user_id, card_number, amount):
+    data = load_data()
+    for manager in data.get("managers", []):
+        if manager["id"] == user_id:
+            for card in manager.get("cards", []):
+                if card["card"] == card_number:
+                    card["money"] = max(card["money"] - amount, 0)
+                    break
+    save_data(data)

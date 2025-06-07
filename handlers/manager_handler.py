@@ -5,7 +5,8 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 from keyboards import get_keyboard_buttons
-from services.json_writer import save_manager, edit_card_number, get_usdt_rate, add_group_withdraw_request
+from services.json_writer import save_manager, edit_card_number, get_usdt_rate, add_group_withdraw_request, \
+    deduct_from_card
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services.json_writer import get_cards_for_manager
@@ -536,12 +537,16 @@ async def show_operator_balance(message: Message):
 @router.message(Command("b"))
 async def group_balance_report(message: Message):
     print(message.chat.id)
-    if not message.chat or message.chat.type != "group":
+    print(message.chat.type)
+    if not message.chat or message.chat.type not in ["group", "supergroup"]:
         await message.answer("❗ Эта команда работает только в группе.")
         return
 
     from services.json_writer import get_chat_by_id, get_settings
     chat_id = message.chat.id
+    if '100' in str(chat_id):
+        chat_id = abs(int(str(abs(chat_id))[3:]))
+    print(chat_id)
     group = get_chat_by_id(abs(chat_id))
 
     if not group:
@@ -607,6 +612,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
     )
 
     chat_id = int(callback.data.split(":")[1])
+    print(chat_id)
     chat = get_chat_by_id(chat_id)
 
     if not chat:
@@ -622,7 +628,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
     rate = settings.get("usdt_rate", 89)
 
     # Считаем общую сумму
-    total_kgs = sum(tx["amount"] for tx in transactions)
+    total_kgs = sum(tx["money"] for tx in transactions)
     procent = settings.get("procent", 12)  # комиссия компании
     procent_bonus = settings.get("procent_bonus", 6)  # бонус оператору
     rate = settings.get("usdt_rate", 89)
@@ -642,9 +648,9 @@ async def handle_group_withdraw(callback: CallbackQuery):
     # Начислим 6% операторам
     operator_map = {}
     for tx in transactions:
-        op_id = tx["operator_id"]
+        op_id = tx["operator"]
         operator_map.setdefault(op_id, 0)
-        operator_map[op_id] += tx["amount"]
+        operator_map[op_id] += tx["money"]
 
     total_operator_kgs = sum(operator_map.values())
 
@@ -665,6 +671,9 @@ async def handle_group_withdraw(callback: CallbackQuery):
     chat.setdefault("old_transactions", []).extend(transactions)
     chat["transactions"] = []
 
+    for tx in transactions:
+        print(tx)
+        deduct_from_card(user_id=tx["operator"], card_number=tx["card"], amount=tx["money"])
     update_chat(chat_id, chat)
 
     # Готовим данные для записи заявки
@@ -689,4 +698,5 @@ async def handle_group_withdraw(callback: CallbackQuery):
         callback.message.text + "\n\n✅ <b>Вывод завершён.</b>\n📦 Баланс очищен.",
         parse_mode="HTML"
     )
+    await callback.bot.send_message(chat_id=-4899834369, text=callback.message.text+f"\n\nИз чата - {chat['id']}")
     await callback.answer("✅ Вывод готов. Заявка зафиксирована.")
