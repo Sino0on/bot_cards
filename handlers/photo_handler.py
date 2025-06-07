@@ -25,6 +25,8 @@ GROUP_ID = -4851516748
 
 @router.message(F.photo)
 async def handle_group_photo(message: Message):
+    if message.chat.id != GROUP_ID:
+        return  # игнорируем сообщения из других чатов
     chat_id = message.chat.id
     chat_id = int(message.caption.split('\n')[0])
     msg_id = message.caption.split('\n')[1]
