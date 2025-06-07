@@ -57,7 +57,7 @@ async def react_to_transaction(event):
         msg_id = int(msg_match.group(1))
         chat_id = chat_match.group(1)
         print('[DEBUG] CHAT_ID', -(int(chat_id)))
-        peer = await client.get_entity(-(int(chat_id)))
+        peer = await client.get_entity(int(chat_id))
         print(f"[DEBUG] Chat ID: {chat_id}, Msg ID: {msg_id}")
         try:
 
