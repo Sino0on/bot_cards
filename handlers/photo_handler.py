@@ -155,7 +155,7 @@ async def finalize_transaction(message: Message, state: FSMContext):
     limit = get_settings().get("limit", 800)
 
     if total_usdt >= limit:
-        set_manager_status(operator_id, False)
+        set_manager_status(operator_id, True)
 
         await message.bot.send_message(
             chat_id=operator_id,
@@ -163,7 +163,6 @@ async def finalize_transaction(message: Message, state: FSMContext):
                 f"🚫 <b>Ты превысил лимит</b>\n"
                 f"💰 На картах: <b>{total_usdt:.2f} USDT</b>\n"
                 f"🔰 Лимит: <b>{limit} USDT</b>\n"
-                f"⛔ Ты временно отключён и больше не будешь получать чеки."
             ),
             parse_mode="HTML"
         )
