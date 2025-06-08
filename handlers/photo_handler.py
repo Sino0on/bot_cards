@@ -3,7 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from decouple import config
 from services.ocr_service import text_contains_number
-from services.json_writer import load_data, find_manager_by_user_id, get_all_chats
+from services.json_writer import load_data, find_manager_by_user_id, get_all_chats, get_formatted_cards
 from services.ocr_service import extract_text
 
 from handlers.manager_handler import AcceptMoney
@@ -55,16 +55,16 @@ async def handle_group_photo(message: Message):
     potential_managers = [m for m in data["managers"] if int(m["id"]) in current_chat["managers"] and m["status"]]
     print(text)
     for manager in potential_managers:
-        for card in manager.get("cards", []):
+        for index, card in enumerate(get_formatted_cards(manager["id"])):
             if card["card"] in text:
                 # Карта найдена — шлём оператору фото
-                print(f'[DEBUG] Check come to {card["card"]}')
+                print(f'[DEBUG] Check come to {manager["cards"][index]}')
                 buttons = InlineKeyboardMarkup(inline_keyboard=[
                     [
                         InlineKeyboardButton(
                             text="✅ Принять",
                             callback_data=AcceptCardCallback(
-                                card=card["card"],
+                                card=manager["cards"][index],
                                 chat_id=chat_id,
                                 msg_id=msg_id
                             ).pack()
@@ -77,7 +77,7 @@ async def handle_group_photo(message: Message):
                 await message.bot.send_photo(
                     chat_id=int(manager["id"]),
                     photo=photo.file_id,
-                    caption=f"📸 Найден чек с картой `{card['card']}`\n",
+                    caption=f"📸 Найден чек с картой `{manager['cards'][index]}`\n",
                     reply_markup=buttons,
                     parse_mode="Markdown"
                 )

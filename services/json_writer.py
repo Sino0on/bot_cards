@@ -531,3 +531,12 @@ def deduct_from_card(user_id, card_number, amount):
                     card["money"] = max(card["money"] - amount, 0)
                     break
     save_data(data)
+
+
+def get_formatted_cards(user_id: int):
+    data = load_data()
+    for manager in data.get("managers", []):
+        if manager["id"] == user_id:
+            cards = manager.get("cards", [])
+            return [card[-4:] for card in cards]
+    return []
