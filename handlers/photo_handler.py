@@ -23,32 +23,56 @@ class AcceptCardCallback(CallbackData, prefix="accept"):
 
 GROUP_ID = -4851516748
 
-@router.message(F.photo)
-async def handle_group_photo(message: Message):
+from services.json_writer import get_all_chats
+
+SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png"]
+SUPPORTED_PDF_TYPES = ["application/pdf"]
+
+@router.message((F.photo | F.document))
+async def handle_group_file_or_photo(message: Message):
     if message.chat.id != GROUP_ID:
-        return  # игнорируем сообщения из других чатов
-    chat_id = message.chat.id
-    chat_id = int(message.caption.split('\n')[0])
-    msg_id = message.caption.split('\n')[1]
-    print(f"[DEBUG] Chat ID: {chat_id}, Msg ID: {msg_id}")
+        return  # игнорируем другие чаты
 
-    # Шаг 1: Найти чат
-    chats = get_all_chats()
-    current_chat = next((c for c in chats if c["id"] == abs(chat_id)), None)
-    print(message.chat.id)
-    if not message.chat.id == GROUP_ID:
-        return  # чат не зарегистрирован или выключен
-
-    # Шаг 2: Скачиваем фото
-    photo = message.photo[-1]
-    file = await message.bot.get_file(photo.file_id)
-    file_bytes = await message.bot.download_file(file.file_path)
-
-    # Шаг 3: Распознаём текст
-    text = await extract_text(file_bytes)
-    print(text)
-    if not text:
+    try:
+        # Получаем chat_id и msg_id из caption
+        chat_id, msg_id = message.caption.split('\n')[:2]
+        chat_id = int(chat_id)
+        print(f"[DEBUG] Chat ID: {chat_id}, Msg ID: {msg_id}")
+    except:
+        await message.answer("❗ Ошибка caption. Невозможно получить ID чата и сообщения.")
         return
+
+    # Проверка, что чат зарегистрирован
+    current_chat = next((c for c in get_all_chats() if c["id"] == abs(chat_id)), None)
+    if not current_chat:
+        return
+
+    # Определяем файл
+    file = None
+    mime_type = None
+    if message.photo:
+        file = await message.bot.get_file(message.photo[-1].file_id)
+        file_bytes = await message.bot.download_file(file.file_path)
+        mime_type = "image/jpeg"  # по умолчанию
+        is_pdf = False
+    elif message.document:
+        mime_type = message.document.mime_type
+        file = await message.bot.get_file(message.document.file_id)
+        file_bytes = await message.bot.download_file(file.file_path)
+        is_pdf = mime_type in SUPPORTED_PDF_TYPES
+    else:
+        return  # unsupported
+
+    # Распознаём текст
+    text = await extract_text(file_bytes, is_pdf=is_pdf)
+    if not text:
+        await message.answer("❗ Текст не распознан.")
+        return
+
+    print("[OCR TEXT]", text)
+
+    # Здесь можешь продолжить поиск совпадений по картам и остальную логику
+
 
     # Шаг 4: Проверка по картам всех менеджеров, привязанных к чату
     data = load_data()
