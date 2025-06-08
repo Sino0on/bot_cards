@@ -77,7 +77,7 @@ async def handle_group_photo(message: Message):
                 await message.bot.send_photo(
                     chat_id=int(manager["id"]),
                     photo=photo.file_id,
-                    caption=f"📸 Найден чек с картой `{manager['cards'][index]}`\n",
+                    caption=f"📸 Найден чек с картой `{manager['cards'][index]['card']}`\n",
                     reply_markup=buttons,
                     parse_mode="Markdown"
                 )

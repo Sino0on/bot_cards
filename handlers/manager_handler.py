@@ -175,10 +175,11 @@ async def show_card_info(callback: CallbackQuery):
 
                 card_number = card['card']
                 fiat_balance = card['money']
-                usdt_balance = round(fiat_balance / 89.0, 2)  # пример курса 1 USDT = 89 сом
+                settings = get_settings()
+                usdt_balance = round(fiat_balance / settings['usdt_rate'], 2)  # пример курса 1 USDT = 89 сом
 
-                masked = f"{card_number[-4:]}"  # берём последние 4 цифры карты
-                card_display = f"ZHE *{masked}"  # можно заменить ZHE на нужное название
+                # masked = f"{card_number[-4:]}"  # берём последние 4 цифры карты
+                card_display = f"ZHE {card_number}"  # можно заменить ZHE на нужное название
 
                 text = (
                     f"💳 <b>{card_display} KGS</b>\n"
@@ -439,8 +440,8 @@ async def show_balance_summary(message: Message):
         usdt = round(fiat / usdt_rate, 2)
         total_usdt += usdt
 
-        masked = f"{card_number[-4:]}"
-        card_display = f"ZHE *{masked}"
+        # masked = f"{card_number[-4:]}"
+        card_display = f"ZHE *{card_number}"
 
         card_lines.append(
             f"💳 {card_display} KGS\n"
@@ -576,9 +577,14 @@ async def group_balance_report(message: Message):
         lines.append(f"🔺 Отчёт: {user_tag}")
         for tx in txs:
             ts = tx["timestamp"]
+
+            # преобразование
+            dt = datetime.fromisoformat(ts)
+            formatted = dt.strftime("%d.%m.%Y %H:%M")
+            ts = formatted
             amount = tx["money"]
             card = tx.get("card", "****")
-            lines.append(f"🔷 ({ts}) {amount} KGS ✅ (💳 *{card[-4:]})")
+            lines.append(f"🔷 ({ts}) {amount} KGS ✅ (💳 {card})")
         lines.append("")
 
     # 2. Итоги
