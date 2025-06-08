@@ -696,7 +696,8 @@ async def handle_group_withdraw(callback: CallbackQuery):
     lines.append("")
     lines.append(f"{total_kgs} / {rate} = <b>{usd} USD</b>")
     lines.append(f"{usd} - {procent}% = <b>{final_usd} USD</b>")
-
+    lines.append(f"\n\nИз чата - {chat['name']}")
+    await callback.bot.send_message(chat_id=-4899834369, text=lines)
     total_operator_kgs = sum(operator_map.values())
 
     for op_id, kgs in operator_map.items():
@@ -774,7 +775,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
         callback.message.text + "\n\n✅ <b>Вывод завершён.</b>\n📦 Баланс очищен.",
         parse_mode="HTML"
     )
-    await callback.bot.send_message(chat_id=-4899834369, text=lines.append(f"\n\nИз чата - {chat['name']}"))
+
     await callback.answer("✅ Вывод готов. Заявка зафиксирована.")
 
 
