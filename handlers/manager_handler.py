@@ -617,6 +617,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
         credit_operator_bonus
     )
 
+
     chat_id = int(callback.data.split(":")[1])
     print(chat_id)
     chat = get_chat_by_id(chat_id)
@@ -657,6 +658,38 @@ async def handle_group_withdraw(callback: CallbackQuery):
         op_id = tx["operator"]
         operator_map.setdefault(op_id, 0)
         operator_map[op_id] += tx["money"]
+
+    lines = []
+    for op_id, txs in operator_map.items():
+        print(txs)
+        user = get_user_by_id(op_id)
+        user_tag = f"<a href='tg://user?username={user['name']}'>оператор {user['name']}</a>"
+        lines.append(f"🔺 Отчёт: {user_tag}")
+        for tx in txs:
+            ts = tx["timestamp"]
+
+            # преобразование
+            dt = datetime.fromisoformat(ts)
+            formatted = dt.strftime("%d.%m.%Y %H:%M")
+            ts = formatted
+            amount = tx["money"]
+            card = tx.get("card", "****")
+            lines.append(f"🔷 ({ts}) {amount} KGS ✅ (💳 {card})")
+        lines.append("")
+
+    # 2. Итоги
+    data = load_data()
+    procent = data.get("settings", {}).get("procent", 12)
+    usd = round(total_kgs / rate, 2)
+    company_cut = round(usd * procent / 100, 2)
+
+    final_usd = round(usd - company_cut, 2)
+
+    lines.append(f"📊 <b>Общая сумма: {total_kgs} KGS</b>")
+    lines.append(f"🧾 ({len(transactions)} инвойсов)")
+    lines.append("")
+    lines.append(f"{total_kgs} / {rate} = <b>{usd} USD</b>")
+    lines.append(f"{usd} - {procent}% = <b>{final_usd} USD</b>")
 
     total_operator_kgs = sum(operator_map.values())
 
@@ -704,37 +737,6 @@ async def handle_group_withdraw(callback: CallbackQuery):
         except Exception as e:
             print(f"❌ Ошибка при отправке сообщения оператору {op_id}: {e}")
 
-    lines = []
-    for op_id, txs in operator_map.items():
-        print(txs)
-        user = get_user_by_id(op_id)
-        user_tag = f"<a href='tg://user?username={user['name']}'>оператор {user['name']}</a>"
-        lines.append(f"🔺 Отчёт: {user_tag}")
-        for tx in txs:
-            ts = tx["timestamp"]
-
-            # преобразование
-            dt = datetime.fromisoformat(ts)
-            formatted = dt.strftime("%d.%m.%Y %H:%M")
-            ts = formatted
-            amount = tx["money"]
-            card = tx.get("card", "****")
-            lines.append(f"🔷 ({ts}) {amount} KGS ✅ (💳 {card})")
-        lines.append("")
-
-    # 2. Итоги
-    data = load_data()
-    procent = data.get("settings", {}).get("procent", 12)
-    usd = round(total_kgs / rate, 2)
-    company_cut = round(usd * procent / 100, 2)
-
-    final_usd = round(usd - company_cut, 2)
-
-    lines.append(f"📊 <b>Общая сумма: {total_kgs} KGS</b>")
-    lines.append(f"🧾 ({len(transactions)} инвойсов)")
-    lines.append("")
-    lines.append(f"{total_kgs} / {rate} = <b>{usd} USD</b>")
-    lines.append(f"{usd} - {procent}% = <b>{final_usd} USD</b>")
     # Перемещаем в old_transactions
     chat.setdefault("old_transactions", []).extend(transactions)
     chat["transactions"] = []
