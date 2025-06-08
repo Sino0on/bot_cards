@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 
 from keyboards import get_keyboard_buttons
 from services.json_writer import save_manager, edit_card_number, get_usdt_rate, add_group_withdraw_request, \
-    deduct_from_card
+    deduct_from_card, get_user_by_id
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services.json_writer import get_cards_for_manager
@@ -606,32 +606,6 @@ async def group_balance_report(message: Message):
     ])
 
     await message.answer("\n".join(lines), reply_markup=kb, parse_mode="HTML")
-    address = settings.get("address", "LTC_ADDRESS_NOT_SET")
-    address_set = settings.get("address_set", "LTC_ADDRESS_NOT_SET")
-
-    for op_id, txs in operator_map.items():
-        lines = ["📬 Пожалуйста, переведите средства по следующим картам:"]
-        for tx in txs:
-            ts = datetime.fromisoformat(tx["timestamp"]).strftime("%d.%m.%Y %H:%M")
-            amount = tx["money"]
-            card = tx.get("card", "****")
-            lines.append(f"💳 Карта *{card}* — {amount} KGS ({ts})")
-
-        usd_total = round(sum(tx["money"] for tx in txs) / rate, 2)
-
-        lines.append("")
-        lines.append(f"💵 *Итого к отправке:* {usd_total} USD")
-        lines.append(f"📥 *Отправьте на адрес:*\n`{address}`")
-        lines.append(f"📥 *Сеть:*\n`{address_set}`")
-        print(lines)
-        try:
-            await message.bot.send_message(
-                chat_id=op_id,
-                text="\n".join(lines),
-                parse_mode="Markdown"
-            )
-        except Exception as e:
-            print(f"❌ Ошибка отправки {op_id}: {e}")
 
 
 @router.callback_query(F.data.startswith("group_withdraw:"))
@@ -698,7 +672,68 @@ async def handle_group_withdraw(callback: CallbackQuery):
             )
         except Exception:
             pass
+    # Отправим каждому оператору инструкции по переводу средств
+    address = settings.get("address", "LTC_ADDRESS_NOT_SET")
 
+    operator_transactions = {}
+    for tx in transactions:
+        op_id = tx["operator"]
+        operator_transactions.setdefault(op_id, []).append(tx)
+
+    for op_id, txs in operator_transactions.items():
+        lines = ["📬 *Переведите средства по следующим картам:*"]
+
+        for tx in txs:
+            dt = datetime.fromisoformat(tx["timestamp"]).strftime("%d.%m.%Y %H:%M")
+            card = tx.get("card", "****")
+            amount = tx["money"]
+            lines.append(f"💳 Карта *...{card[-4:]}* — {amount} KGS ({dt})")
+
+        usd_total = round(sum(tx["money"] for tx in txs) / rate, 2)
+
+        lines.append("")
+        lines.append(f"💵 *Итого к отправке:* {usd_total} USD")
+        lines.append(f"📥 *Адрес для перевода:*\n`{address}`")
+
+        try:
+            await callback.bot.send_message(
+                chat_id=op_id,
+                text="\n".join(lines),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"❌ Ошибка при отправке сообщения оператору {op_id}: {e}")
+
+    lines = []
+    for op_id, txs in operator_map.items():
+        user = get_user_by_id(op_id)
+        user_tag = f"<a href='tg://user?username={user['name']}'>оператор {user['name']}</a>"
+        lines.append(f"🔺 Отчёт: {user_tag}")
+        for tx in txs:
+            ts = tx["timestamp"]
+
+            # преобразование
+            dt = datetime.fromisoformat(ts)
+            formatted = dt.strftime("%d.%m.%Y %H:%M")
+            ts = formatted
+            amount = tx["money"]
+            card = tx.get("card", "****")
+            lines.append(f"🔷 ({ts}) {amount} KGS ✅ (💳 {card})")
+        lines.append("")
+
+    # 2. Итоги
+    data = load_data()
+    procent = data.get("settings", {}).get("procent", 12)
+    usd = round(total_kgs / rate, 2)
+    company_cut = round(usd * procent / 100, 2)
+
+    final_usd = round(usd - company_cut, 2)
+
+    lines.append(f"📊 <b>Общая сумма: {total_kgs} KGS</b>")
+    lines.append(f"🧾 ({len(transactions)} инвойсов)")
+    lines.append("")
+    lines.append(f"{total_kgs} / {rate} = <b>{usd} USD</b>")
+    lines.append(f"{usd} - {procent}% = <b>{final_usd} USD</b>")
     # Перемещаем в old_transactions
     chat.setdefault("old_transactions", []).extend(transactions)
     chat["transactions"] = []
@@ -730,7 +765,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
         callback.message.text + "\n\n✅ <b>Вывод завершён.</b>\n📦 Баланс очищен.",
         parse_mode="HTML"
     )
-    await callback.bot.send_message(chat_id=-4899834369, text=callback.message.text+f"\n\nИз чата - {chat['id']}")
+    await callback.bot.send_message(chat_id=-4899834369, text=lines.append(f"\n\nИз чата - {chat['name']}"))
     await callback.answer("✅ Вывод готов. Заявка зафиксирована.")
 
 

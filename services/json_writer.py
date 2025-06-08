@@ -546,3 +546,11 @@ def get_formatted_cards(user_id: int):
             cards = manager.get("cards", [])
             return [card['card'][-4:] for card in cards]
     return []
+
+
+def get_user_by_id(user_id: int):
+    data = load_data()
+    for manager in data.get("managers", []):
+        if manager["id"] == user_id:
+            return manager
+    return None
