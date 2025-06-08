@@ -213,7 +213,7 @@ async def show_card_info(callback: CallbackQuery):
 
                 text = (
                     f"💳 <b>{card_display} KGS</b>\n"
-                    f"💳 ФИО <b>{full_name} KGS</b>\n"
+                    f"💳 ФИО <b>{full_name}</b>\n"
                     f"🌐 ФИАТ: <b>{fiat_balance:.2f}</b>\n"
                     f"💵 USDT: <b>{usdt_balance:.2f}</b>"
                 )
