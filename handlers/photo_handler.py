@@ -56,7 +56,7 @@ async def handle_group_photo(message: Message):
     print(text)
     for manager in potential_managers:
         for index, card in enumerate(get_formatted_cards(manager["id"])):
-            if card["card"] in text:
+            if card in text:
                 # Карта найдена — шлём оператору фото
                 print(f'[DEBUG] Check come to {manager["cards"][index]}')
                 buttons = InlineKeyboardMarkup(inline_keyboard=[
