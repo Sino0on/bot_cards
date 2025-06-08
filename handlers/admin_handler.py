@@ -757,13 +757,21 @@ async def ask_transfer_amount(callback: CallbackQuery, state: FSMContext):
         return
 
     await state.update_data(chat_id=chat_id, chat_name=chat["name"])
-    await callback.message.answer(f"Введите сумму в *USDT*, которую хотите перевести из баланса группы *{chat['name']}*:", parse_mode="Markdown")
+    await callback.message.answer(f"Введите сумму в *USDT*, которую хотите перевести из баланса группы *{chat['name']}* \nБаланс: {chat['balance']}", parse_mode="Markdown", reply_markup=ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="❌ Отмена")]],
+        resize_keyboard=True
+    ))
     await state.set_state(TransferToShop.waiting_for_amount)
     await callback.answer()
 
 
 @router.message(TransferToShop.waiting_for_amount)
 async def process_transfer_amount(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Добавление нового чата отменена.",
+                             reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
     amount_text = message.text.strip()
     if not amount_text.replace('.', '', 1).isdigit():
         await message.answer("❗ Введите корректную сумму в USDT.")
