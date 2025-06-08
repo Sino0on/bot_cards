@@ -669,7 +669,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
     for op_id, txs in operator_map2.items():
         print(txs)
         user = get_user_by_id(op_id)
-        user_tag = f"<a href='tg://user?username={user['name']}'>оператор {user['name']}</a>"
+        user_tag = f"<a href='tg://user?id={user['id']}'>{user['name']}</a>"
         lines.append(f"🔺 Отчёт: {user_tag}")
         for tx in txs:
             ts = tx["timestamp"]
