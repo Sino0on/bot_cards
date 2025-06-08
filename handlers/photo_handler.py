@@ -100,6 +100,10 @@ async def accept_card_callback(callback: CallbackQuery, callback_data: AcceptCar
         "chat_id": callback_data.chat_id,  # можно брать отсюда
         "operator_id": callback.from_user.id
     })
+    confirmed_markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Статус: Оплачено", callback_data="noop")]
+    ])
+    await callback.message.edit_reply_markup(reply_markup=confirmed_markup)
     await callback.message.answer("Введите сумму для этой транзакции (в сомах):")
     await callback.answer()
 
@@ -109,6 +113,10 @@ async def accept_card_callback(callback: CallbackQuery, callback_data: AcceptCar
 
 @router.callback_query(F.data == "decline_card")
 async def decline_card_callback(callback: CallbackQuery, state: FSMContext):
+    confirmed_markup = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="❌ Статус: Отказано", callback_data="noop")]
+    ])
+    await callback.message.edit_reply_markup(reply_markup=confirmed_markup)
     await callback.message.answer("❌ Операция отменена.")
     await state.clear()
     await callback.answer()

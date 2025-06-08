@@ -22,6 +22,8 @@ def save_manager(manager_id, name):
     data["managers"].append({
         "id": manager_id,
         "name": name,
+        "status": True,
+        "balance": 0.0,
         "cards": []
     })
     with open(DATA_PATH, "w", encoding="utf-8") as f:
