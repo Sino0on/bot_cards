@@ -410,15 +410,19 @@ from services.json_writer import get_settings
 @router.message(F.text == "⚙️ Настройки системы")
 async def settings_menu(message: types.Message):
     settings = get_settings()
-    address = settings.get("address", "—")
+    address = settings.get("addres", "—")
+    address_set = settings.get("address_set", "—")
     limit = settings.get("limit", "—")
+    usdt_rate = settings.get("usdt_rate", "—")
     procent = settings.get("procent", "—")
     bonus = settings.get("procent_bonus", "—")
 
     text = (
         f"⚙️ <b>Текущие настройки</b>:\n"
         f"🏦 Адрес: <code>{address}</code>\n"
+        f"🏦 Сеть: <code>{address_set}</code>\n"
         f"💰 Лимит: {limit} USD\n"
+        f"💰 Курс: {usdt_rate} \n"
         f"💱 Процент: {procent}%\n"
         f"💰 Процент бонуса: {bonus}%\n\n"
         f"Выберите, что хотите изменить:"
