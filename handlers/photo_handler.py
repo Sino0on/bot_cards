@@ -51,11 +51,13 @@ async def handle_group_file_or_photo(message: Message):
     file = None
     mime_type = None
     if message.photo:
+        photo = message.photo[-1]
         file = await message.bot.get_file(message.photo[-1].file_id)
         file_bytes = await message.bot.download_file(file.file_path)
         mime_type = "image/jpeg"  # по умолчанию
         is_pdf = False
     elif message.document:
+        photo = message.document
         mime_type = message.document.mime_type
         file = await message.bot.get_file(message.document.file_id)
         file_bytes = await message.bot.download_file(file.file_path)
@@ -97,14 +99,22 @@ async def handle_group_file_or_photo(message: Message):
                         InlineKeyboardButton(text="❌ Отказать", callback_data="decline_card")
                     ]
                 ])
-
-                await message.bot.send_photo(
-                    chat_id=int(manager["id"]),
-                    photo=photo.file_id,
-                    caption=f"📸 Найден чек с картой `{manager['cards'][index]['card']}`\n",
-                    reply_markup=buttons,
-                    parse_mode="Markdown"
-                )
+                if message.photo:
+                    await message.bot.send_photo(
+                        chat_id=int(manager["id"]),
+                        photo=message.photo[-1].file_id,
+                        caption=f"📸 Найден чек с картой `{manager['cards'][index]['card']}`\n",
+                        reply_markup=buttons,
+                        parse_mode="Markdown"
+                    )
+                elif message.document:
+                    await message.bot.send_document(
+                        chat_id=manager["id"],
+                        document=message.document.file_id,
+                        caption=f"📸 Найден чек с картой `{manager['cards'][index]['card']}`\n",
+                        reply_markup=buttons,
+                        parse_mode="Markdown"
+                    )
                 return  # остановимся на первом найденном
 
 
