@@ -691,7 +691,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
         operator_map[op_id] += tx["money"]
 
     operator_map2 = {}  # {op_id: [list of tx]}
-
+    total_kgs = 0
     for tx in transactions:
         op_id = tx["operator"]
         operator_map2.setdefault(op_id, []).append(tx)
