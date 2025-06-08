@@ -706,3 +706,35 @@ async def handle_group_withdraw(callback: CallbackQuery):
     )
     await callback.bot.send_message(chat_id=-4899834369, text=callback.message.text+f"\n\nИз чата - {chat['id']}")
     await callback.answer("✅ Вывод готов. Заявка зафиксирована.")
+
+
+@router.message(Command("r"))
+async def show_registered_cards(message: Message):
+    from services.json_writer import get_chat_by_id, get_formatted_cards
+
+    chat_id = message.chat.id
+    chat = get_chat_by_id(chat_id)
+
+    if not chat:
+        await message.answer("❌ Этот чат не зарегистрирован.")
+        return
+
+    operators = chat.get("managers", [])
+    if not operators:
+        await message.answer("ℹ️ В этом чате нет зарегистрированных операторов.")
+        return
+
+    text = f"📋 Зарегистрированные карты в чате *{chat.get('name', '—')}*:\n\n"
+
+    for op_id in operators:
+        cards = get_formatted_cards(op_id)
+        if cards:
+            text += f"👤 <code>{op_id}</code>\n"
+            for c in cards:
+                text += f"  • 💳 {c}*\n"
+            text += "\n"
+        else:
+            text += f"👤 <code>{op_id}</code>\n  • 🚫 Нет карт\n\n"
+
+    await message.answer(text, parse_mode="Markdown")
+
