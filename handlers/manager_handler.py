@@ -729,12 +729,12 @@ async def show_registered_cards(message: Message):
     for op_id in operators:
         cards = get_formatted_cards(op_id)
         if cards:
-            text += f"👤 <code>{op_id}</code>\n"
+            text += f"👤 {op_id}\n"
             for c in cards:
                 text += f"  • 💳 {c}*\n"
             text += "\n"
-        else:
-            text += f"👤 <code>{op_id}</code>\n  • 🚫 Нет карт\n\n"
+        # else:
+            # text += f"👤 <code>{op_id}</code>\n  • 🚫 Нет карт\n\n"
 
     await message.answer(text, parse_mode="Markdown")
 
