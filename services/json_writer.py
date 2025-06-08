@@ -39,7 +39,20 @@ def find_manager_by_user_id(user_id):
     return None
 
 
-def add_card_to_manager(user_id, card_number):
+def check_card_to_manager(user_id, card_number, fio):
+    data = load_data()
+    user_id_str = user_id
+
+    for manager in data["managers"]:
+        if manager["id"] == user_id_str:
+            # Проверка на дубликаты
+            for c in manager["cards"]:
+                if c["card"] == card_number:
+                    return False  # карта уже существует
+            return True
+    return None  # менеджер не найден
+
+def add_card_to_manager(user_id, card_number, fio):
     data = load_data()
     user_id_str = user_id
 
@@ -51,6 +64,7 @@ def add_card_to_manager(user_id, card_number):
                     return False  # карта уже существует
             manager["cards"].append({
                 "card": card_number,
+                "full_name": fio,
                 "money": 0
             })
             with open(DATA_PATH, "w", encoding="utf-8") as f:
@@ -563,3 +577,11 @@ def get_cards(user_id: int):
             cards = manager.get("cards", [])
             return [card['card'] for card in cards]
     return []
+
+def find_fullname_by_card(card_arg: str):
+    data = load_data()
+    for manager in data.get("managers", []):
+        for card in manager['cards']:
+            if card['card'] == card_arg:
+                return card['full_name']
+    return ''

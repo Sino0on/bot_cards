@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 
 from keyboards import get_keyboard_buttons
 from services.json_writer import save_manager, edit_card_number, get_usdt_rate, add_group_withdraw_request, \
-    deduct_from_card, get_user_by_id, get_cards
+    deduct_from_card, get_user_by_id, get_cards, check_card_to_manager, find_fullname_by_card
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services.json_writer import get_cards_for_manager
@@ -23,6 +23,7 @@ class AddManager(StatesGroup):
 
 class AddCard(StatesGroup):
     waiting_for_card_number = State()
+    waiting_for_fullname = State()
 
 
 class AcceptMoney(StatesGroup):
@@ -97,6 +98,7 @@ async def start_add_card(message: Message, state: FSMContext):
         keyboard=[[KeyboardButton(text="❌ Отмена")]],
         resize_keyboard=True
     ))
+
         await state.set_state(AddCard.waiting_for_card_number)
     else:
         await message.answer("❌ Ты не зарегистрирован как менеджер.")
@@ -109,8 +111,35 @@ async def save_card(message: Message, state: FSMContext):
         await message.answer("❌ Добавление карты отменена.",
                              reply_markup=get_keyboard_buttons(message.from_user.id))
         return
+
     card_number = message.text.strip()
-    result = add_card_to_manager(message.from_user.id, card_number)
+    result = check_card_to_manager(message.from_user.id, card_number)
+
+    if result is True:
+        await state.update_data(card_number=message.text)
+        await message.answer(f"Введите ФИО на латинском: ", )
+    elif result is False:
+        await message.answer("⚠️ Такая карта уже добавлена.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        await state.clear()
+        return
+    else:
+        await message.answer("❌ Ты не зарегистрирован как менеджер.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        await state.clear()
+        return
+    await state.set_state(AddCard.waiting_for_fullname)
+
+
+@router.message(AddCard.waiting_for_fullname)
+async def save_card(message: Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Добавление карты отменена.",
+                             reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+    # card_number = message.text.strip()
+    user_data = await state.get_data()
+    card_number = user_data["card_number"]
+    result = add_card_to_manager(message.from_user.id, card_number, message.text)
 
     if result is True:
         await message.answer(f"✅ Карта {card_number} добавлена.", reply_markup=get_keyboard_buttons(message.from_user.id))
@@ -174,6 +203,7 @@ async def show_card_info(callback: CallbackQuery):
                 ])
 
                 card_number = card['card']
+                full_name = card['full_name']
                 fiat_balance = card['money']
                 settings = get_settings()
                 usdt_balance = round(fiat_balance / settings['usdt_rate'], 2)  # пример курса 1 USDT = 89 сом
@@ -183,6 +213,7 @@ async def show_card_info(callback: CallbackQuery):
 
                 text = (
                     f"💳 <b>{card_display} KGS</b>\n"
+                    f"💳 ФИО <b>{full_name} KGS</b>\n"
                     f"🌐 ФИАТ: <b>{fiat_balance:.2f}</b>\n"
                     f"💵 USDT: <b>{usdt_balance:.2f}</b>"
                 )
@@ -802,7 +833,7 @@ async def show_registered_cards(message: Message):
         if cards:
             # text += f"👤 {op_id}\n"
             for c in cards:
-                text += f"  • 💳 {c}*\n"
+                text += f"  • 💳 {c}* - {find_fullname_by_card(c)}\n"
             # text += "\n"
         # else:
             # text += f"👤 <code>{op_id}</code>\n  • 🚫 Нет карт\n\n"
