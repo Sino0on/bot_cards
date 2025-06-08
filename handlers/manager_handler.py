@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 
 from keyboards import get_keyboard_buttons
 from services.json_writer import save_manager, edit_card_number, get_usdt_rate, add_group_withdraw_request, \
-    deduct_from_card, get_user_by_id
+    deduct_from_card, get_user_by_id, get_cards
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services.json_writer import get_cards_for_manager
@@ -798,12 +798,12 @@ async def show_registered_cards(message: Message):
     text = f"📋 Зарегистрированные карты в чате *{chat.get('name', '—')}*:\n\n"
 
     for op_id in operators:
-        cards = get_formatted_cards(op_id)
+        cards = get_cards(op_id)
         if cards:
-            text += f"👤 {op_id}\n"
+            # text += f"👤 {op_id}\n"
             for c in cards:
                 text += f"  • 💳 {c}*\n"
-            text += "\n"
+            # text += "\n"
         # else:
             # text += f"👤 <code>{op_id}</code>\n  • 🚫 Нет карт\n\n"
 

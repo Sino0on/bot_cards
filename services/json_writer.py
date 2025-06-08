@@ -554,3 +554,12 @@ def get_user_by_id(user_id: int):
         if manager["id"] == user_id:
             return manager
     return None
+
+
+def get_cards(user_id: int):
+    data = load_data()
+    for manager in data.get("managers", []):
+        if manager["id"] == user_id:
+            cards = manager.get("cards", [])
+            return [card['card'] for card in cards]
+    return []
