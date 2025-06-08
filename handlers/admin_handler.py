@@ -737,7 +737,7 @@ async def start_transfer_to_shop(message: Message, state: FSMContext):
         return
 
     buttons = [
-        [InlineKeyboardButton(text=chat["name"], callback_data=f"chat_transfer:{chat['id']}")]
+        [InlineKeyboardButton(text=chat["name"], callback_data=f"transfer:{chat['id']}")]
         for chat in chats
     ]
     markup = InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -746,7 +746,7 @@ async def start_transfer_to_shop(message: Message, state: FSMContext):
 
 
 
-@router.callback_query(F.data.startswith("chat_transfer:"))
+@router.callback_query(F.data.startswith("transfer:"))
 async def ask_transfer_amount(callback: CallbackQuery, state: FSMContext):
     chat_id = int(callback.data.split(":")[1])
     from services.json_writer import get_chat_by_id
