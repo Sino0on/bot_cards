@@ -659,8 +659,14 @@ async def handle_group_withdraw(callback: CallbackQuery):
         operator_map.setdefault(op_id, 0)
         operator_map[op_id] += tx["money"]
 
+    operator_map2 = {}  # {op_id: [list of tx]}
+
+    for tx in transactions:
+        op_id = tx["operator"]
+        operator_map2.setdefault(op_id, []).append(tx)
+        total_kgs += tx["money"]
     lines = []
-    for op_id, txs in operator_map.items():
+    for op_id, txs in operator_map2.items():
         print(txs)
         user = get_user_by_id(op_id)
         user_tag = f"<a href='tg://user?username={user['name']}'>оператор {user['name']}</a>"
