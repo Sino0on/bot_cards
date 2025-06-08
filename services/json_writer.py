@@ -465,6 +465,17 @@ from datetime import datetime
 
 def add_group_withdraw_request(chat_id, chat_name, transactions, rate, company_cut, operator_bonuses, final_usd):
     data = load_data()
+
+    for chat in data.get("chats", []):
+        if chat["id"] == chat_id:
+            # Сумма в USD (до комиссии)
+            full_usd = round(sum(tx["money"] for tx in transactions) / rate, 2)
+
+            # Добавляем к балансу
+            chat["all_balance"] = round(chat.get("all_balance", 0) + full_usd, 2)
+            chat["balance"] = round(chat.get("balance", 0) + final_usd, 2)
+            break
+
     requests = data.setdefault("requests", [])
     request_id = len(requests) + 1
 

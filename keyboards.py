@@ -29,7 +29,7 @@ def get_keyboard_buttons(user_id: int = None):
         buttons.append([
             KeyboardButton(text="💬 Чаты"),  # управление чатами
             KeyboardButton(text="📊 Балансы"),  # управление чатами
-            KeyboardButton(text="🧾 История по операторам")
+            KeyboardButton(text="💸 Отправка денег в шоп")
         ])
 
     keyboard = types.ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)

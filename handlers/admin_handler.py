@@ -718,3 +718,94 @@ async def remove_operator(message: Message, state: FSMContext):
         await message.answer("❌ Не удалось удалить. Возможно, такого оператора нет.")
 
     await state.clear()
+
+
+from aiogram.fsm.state import StatesGroup, State
+
+class TransferToShop(StatesGroup):
+    choosing_chat = State()
+    waiting_for_amount = State()
+
+
+@router.message(F.text == "💸 Отправка денег в шоп")
+async def start_transfer_to_shop(message: Message, state: FSMContext):
+    from services.json_writer import get_all_chats
+
+    chats = get_all_chats()
+    if not chats:
+        await message.answer("❗ Нет доступных групп.")
+        return
+
+    buttons = [
+        [InlineKeyboardButton(text=chat["name"], callback_data=f"chat_transfer:{chat['id']}")]
+        for chat in chats
+    ]
+    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await message.answer("Выберите группу:", reply_markup=markup)
+    await state.set_state(TransferToShop.choosing_chat)
+
+
+
+@router.callback_query(F.data.startswith("chat_transfer:"))
+async def ask_transfer_amount(callback: CallbackQuery, state: FSMContext):
+    chat_id = int(callback.data.split(":")[1])
+    from services.json_writer import get_chat_by_id
+
+    chat = get_chat_by_id(chat_id)
+    if not chat:
+        await callback.answer("Чат не найден", show_alert=True)
+        return
+
+    await state.update_data(chat_id=chat_id, chat_name=chat["name"])
+    await callback.message.answer(f"Введите сумму в *USDT*, которую хотите перевести из баланса группы *{chat['name']}*:", parse_mode="Markdown")
+    await state.set_state(TransferToShop.waiting_for_amount)
+    await callback.answer()
+
+
+@router.message(TransferToShop.waiting_for_amount)
+async def process_transfer_amount(message: Message, state: FSMContext):
+    amount_text = message.text.strip()
+    if not amount_text.replace('.', '', 1).isdigit():
+        await message.answer("❗ Введите корректную сумму в USDT.")
+        return
+
+    amount = float(amount_text)
+    data = await state.get_data()
+    chat_id = data["chat_id"]
+    from services.json_writer import get_chat_by_id, update_chat
+
+    chat = get_chat_by_id(chat_id)
+    if not chat:
+        await message.answer("❗ Группа не найдена.")
+        await state.clear()
+        return
+
+    balance = chat.get("balance", 0)
+    all_balance = chat.get("all_balance", 0)
+
+    if amount > balance:
+        await message.answer(f"❌ Недостаточно средств. На балансе: {balance} USD")
+        return
+
+    # списываем
+    chat["balance"] = round(balance - amount, 2)
+    update_chat(chat_id, chat)
+
+    await message.answer(f"✅ Успешно отправлено {amount} USD из группы *{chat['name']}*.\n💰 Остаток: {chat['balance']} USD", parse_mode="Markdown")
+
+    # уведомляем группу
+    try:
+        await message.bot.send_message(
+            chat_id=-chat["id"],
+            text=(
+                f"📤 *Деньги отправлены в шоп!*\n"
+                f"💸 Переведено: *{amount} USD*\n"
+                f"💰 Остаток баланса: *{chat['balance']} USD*\n"
+                f"📊 Всего заработано: *{all_balance} USD*"
+            ),
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print(f"[ERROR] Не удалось уведомить группу: {e}")
+
+    await state.clear()
