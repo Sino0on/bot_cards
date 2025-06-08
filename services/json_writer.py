@@ -538,5 +538,5 @@ def get_formatted_cards(user_id: int):
     for manager in data.get("managers", []):
         if manager["id"] == user_id:
             cards = manager.get("cards", [])
-            return [card[-4:] for card in cards]
+            return [card['card'][-4:] for card in cards]
     return []
