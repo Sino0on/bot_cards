@@ -460,9 +460,9 @@ async def show_balance_summary(message: Message):
         f"   🔰 Лимит: {remaining:.2f}"
     )
     reply_markup = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔁 Закончить круг", callback_data="finish_round")]
-        ]
+        # inline_keyboard=[
+        #     [InlineKeyboardButton(text="🔁 Закончить круг", callback_data="finish_round")]
+        # ]
     )
     await message.answer(text, parse_mode="HTML", reply_markup=reply_markup)
 
@@ -606,6 +606,32 @@ async def group_balance_report(message: Message):
     ])
 
     await message.answer("\n".join(lines), reply_markup=kb, parse_mode="HTML")
+    address = settings.get("address", "LTC_ADDRESS_NOT_SET")
+    address_set = settings.get("address_set", "LTC_ADDRESS_NOT_SET")
+
+    for op_id, txs in operator_map.items():
+        lines = ["📬 Пожалуйста, переведите средства по следующим картам:"]
+        for tx in txs:
+            ts = datetime.fromisoformat(tx["timestamp"]).strftime("%d.%m.%Y %H:%M")
+            amount = tx["money"]
+            card = tx.get("card", "****")
+            lines.append(f"💳 Карта *{card}* — {amount} KGS ({ts})")
+
+        usd_total = round(sum(tx["money"] for tx in txs) / rate, 2)
+
+        lines.append("")
+        lines.append(f"💵 *Итого к отправке:* {usd_total} USD")
+        lines.append(f"📥 *Отправьте на адрес:*\n`{address}`")
+        lines.append(f"📥 *Сеть:*\n`{address_set}`")
+
+        try:
+            await message.bot.send_message(
+                chat_id=op_id,
+                text="\n".join(lines),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            print(f"❌ Ошибка отправки {op_id}: {e}")
 
 
 @router.callback_query(F.data.startswith("group_withdraw:"))
