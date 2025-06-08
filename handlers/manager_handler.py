@@ -796,12 +796,11 @@ async def show_registered_cards(message: Message):
         return
 
     text = f"📋 Зарегистрированные карты в чате *{chat.get('name', '—')}*:\n\n"
-
+    print(text)
     for op_id in operators:
-        cards = get_formatted_cards(op_id)
-        if cards:
+        if op_id['cards']:
             text += f"👤 {op_id}\n"
-            for c in cards:
+            for c in op_id['cards']:
                 text += f"  • 💳 {c}*\n"
             text += "\n"
         # else:
