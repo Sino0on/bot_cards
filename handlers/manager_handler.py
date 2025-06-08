@@ -706,6 +706,7 @@ async def handle_group_withdraw(callback: CallbackQuery):
 
     lines = []
     for op_id, txs in operator_map.items():
+        print(txs)
         user = get_user_by_id(op_id)
         user_tag = f"<a href='tg://user?username={user['name']}'>оператор {user['name']}</a>"
         lines.append(f"🔺 Отчёт: {user_tag}")
