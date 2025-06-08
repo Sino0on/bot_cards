@@ -39,7 +39,7 @@ def find_manager_by_user_id(user_id):
     return None
 
 
-def check_card_to_manager(user_id, card_number, fio):
+def check_card_to_manager(user_id, card_number):
     data = load_data()
     user_id_str = user_id
 
