@@ -410,7 +410,7 @@ from services.json_writer import get_settings
 @router.message(F.text == "⚙️ Настройки системы")
 async def settings_menu(message: types.Message):
     settings = get_settings()
-    address = settings.get("addres", "—")
+    address = settings.get("address", "—")
     address_set = settings.get("address_set", "—")
     limit = settings.get("limit", "—")
     usdt_rate = settings.get("usdt_rate", "—")
