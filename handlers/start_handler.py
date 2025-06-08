@@ -25,6 +25,7 @@ async def command_start_handler(message: Message) -> None:
             f'Пиши в личку',
             reply_markup=ReplyKeyboardRemove()
         )
+        return
     user = find_manager_by_user_id(message.from_user.id)
     print(user)
     if user:
