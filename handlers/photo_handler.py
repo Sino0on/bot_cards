@@ -58,13 +58,13 @@ async def handle_group_photo(message: Message):
         for index, card in enumerate(get_formatted_cards(manager["id"])):
             if card in text:
                 # Карта найдена — шлём оператору фото
-                print(f'[DEBUG] Check come to {manager["cards"][index]}')
+                print(f'[DEBUG] Check come to {manager["cards"][index]["card"]}')
                 buttons = InlineKeyboardMarkup(inline_keyboard=[
                     [
                         InlineKeyboardButton(
                             text="✅ Принять",
                             callback_data=AcceptCardCallback(
-                                card=manager["cards"][index],
+                                card=manager["cards"][index]['card'],
                                 chat_id=chat_id,
                                 msg_id=msg_id
                             ).pack()
