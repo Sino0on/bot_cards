@@ -573,8 +573,8 @@ async def group_balance_report(message: Message):
 
     lines = []
     for op_id, txs in operator_map.items():
-        user_tag = f"<a href='tg://user?id={op_id}'>оператор {op_id}</a>"
-        lines.append(f"🔺 Отчёт: {user_tag}")
+        # user_tag = f"<a href='tg://user?id={op_id}'>оператор {op_id}</a>"
+        lines.append(f"🔺 Отчёт:")
         for tx in txs:
             ts = tx["timestamp"]
 
@@ -623,7 +623,7 @@ async def group_balance_report(message: Message):
         lines.append(f"💵 *Итого к отправке:* {usd_total} USD")
         lines.append(f"📥 *Отправьте на адрес:*\n`{address}`")
         lines.append(f"📥 *Сеть:*\n`{address_set}`")
-
+        print(lines)
         try:
             await message.bot.send_message(
                 chat_id=op_id,
