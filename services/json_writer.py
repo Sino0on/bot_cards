@@ -291,6 +291,12 @@ def update_address(new_address: str):
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
+def update_address_set(new_address: str):
+    data = load_data()
+    data.setdefault("settings", {})["address_set"] = new_address
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
 def update_limit(new_limit: float):
     data = load_data()
     data.setdefault("settings", {})["limit"] = new_limit

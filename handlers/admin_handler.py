@@ -395,6 +395,7 @@ from aiogram.fsm.state import State, StatesGroup
 
 class SettingsFSM(StatesGroup):
     waiting_for_address = State()
+    waiting_for_address_set = State()
     waiting_for_limit = State()
     waiting_for_bonus = State()
     waiting_for_bonus_procent = State()
@@ -457,8 +458,22 @@ async def save_address(message: types.Message, state: FSMContext):
         return
 
     update_address(message.text.strip())
+    # await state.clear()
+    await state.set_state(SettingsFSM.waiting_for_address_set)
+    await message.answer("Введите сеть крипты:", reply_markup=get_keyboard_buttons(message.from_user.id))
+
+
+@router.message(SettingsFSM.waiting_for_address_set)
+async def save_address(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отмена":
+        await state.clear()
+        await message.answer("❌ Отмена.", reply_markup=get_keyboard_buttons(message.from_user.id))
+        return
+
+    update_address_set(message.text.strip())
     await state.clear()
     await message.answer("✅ Адрес обновлён.", reply_markup=get_keyboard_buttons(message.from_user.id))
+
 
 
 from services.json_writer import update_limit
