@@ -446,6 +446,8 @@ def get_operator_bonus_balance(user_id: int) -> float:
 
 def get_chat_by_id(chat_id: int):
     data = load_data()
+    if str(chat_id)[:4] == '-100':
+        chat_id = abs(int(str(chat_id)[4:]))
     for chat in data.get("chats", []):
         if chat["id"] == abs(chat_id):
             return chat
