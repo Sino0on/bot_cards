@@ -36,6 +36,14 @@ from aiogram.fsm.state import State, StatesGroup
 class ManualCardFSM(StatesGroup):
     waiting_for_card = State()
 
+from aiogram.filters.callback_data import CallbackData
+
+class ManualCardCallback(CallbackData, prefix="manual"):
+    file_id: str
+    chat_id: int
+    msg_id: int
+    caption: str
+
 
 @router.message((F.photo | F.document))
 async def handle_group_file_or_photo(message: Message, state: FSMContext):
@@ -130,16 +138,23 @@ async def handle_group_file_or_photo(message: Message, state: FSMContext):
 
 
     # Сохраняем инфу в state
-    await state.update_data({
-        "file_id": photo.file_id,
-        "chat_id": chat_id,
-        "msg_id": msg_id,
-        "caption": message.caption
-    })
+    # await state.update_data({
+    #     "file_id": photo.file_id,
+    #     "chat_id": chat_id,
+    #     "msg_id": msg_id,
+    #     "caption": message.caption
+    # })
 
-    manual_buttons = InlineKeyboardMarkup(inline_keyboard=[
+    buttons = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="✍️ Вручную вписать карту", callback_data="manual_input_card"),
+            InlineKeyboardButton(
+                text="✍️ Вручную вписать карту",
+                callback_data=ManualCardCallback(
+                    file_id=photo.file_id,
+                    chat_id=chat_id,
+                    msg_id=msg_id
+                ).pack()
+            ),
             InlineKeyboardButton(text="❌ Отменить", callback_data="manual_cancel")
         ]
     ])
@@ -150,25 +165,30 @@ async def handle_group_file_or_photo(message: Message, state: FSMContext):
             chat_id=GROUP_MANUAL_ID,
             photo=message.photo[-1].file_id,
             caption=f"❗ Чек без совпадений\nchat_id: {chat_id}\nmsg_id: {msg_id}",
-            reply_markup=manual_buttons
+            reply_markup=buttons
         )
     elif message.document:
         await message.bot.send_document(
             chat_id=GROUP_MANUAL_ID,
             document=message.document.file_id,
             caption=f"❗ Чек без совпадений\nchat_id: {chat_id}\nmsg_id: {msg_id}",
-            reply_markup=manual_buttons
+            reply_markup=buttons
         )
 
 
-@router.callback_query(F.data == "manual_input_card")
-async def manual_input(callback: CallbackQuery, state: FSMContext):
+@router.callback_query(ManualCardCallback.filter())
+async def manual_input(callback: CallbackQuery, callback_data: ManualCardCallback, state: FSMContext):
+    # Здесь у тебя ВСЕ ДАННЫЕ есть в callback_data
+    await state.update_data({
+        "file_id": callback_data.file_id,
+        "chat_id": callback_data.chat_id,
+        "msg_id": callback_data.msg_id
+    })
+
     await callback.message.answer("Введите последние 4 цифры карты:")
     await state.set_state(ManualCardFSM.waiting_for_card)
-    data = await state.get_data()
-    print("[FSM DATA]", data)
-
     await callback.answer()
+
 
 
 
