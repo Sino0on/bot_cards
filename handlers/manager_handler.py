@@ -849,6 +849,7 @@ async def show_registered_cards(message: Message):
     from services.json_writer import get_chat_by_id, get_formatted_cards
 
     chat_id = message.chat.id
+    print(f'[DEBUG] COMMAND R {chat_id}')
     chat = get_chat_by_id(chat_id)
 
     if not chat:
