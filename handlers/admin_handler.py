@@ -864,6 +864,7 @@ async def show_chat_settings(callback: CallbackQuery, state: FSMContext):
     procent = settings.get("procent", 12)
     procent_bonus = settings.get("procent_bonus", 6)
     address = settings.get("address", "Не установлен")
+    address_set = settings.get("address_set", "Не установлен")
 
     text = (
         f"⚙️ <b>Текущие настройки чата:</b>\n\n"
@@ -871,6 +872,7 @@ async def show_chat_settings(callback: CallbackQuery, state: FSMContext):
         f"💰 Процент комиссии: <b>{procent}%</b>\n"
         f"🎯 Процент бонуса: <b>{procent_bonus}%</b>\n"
         f"🏦 Адрес перевода:\n<code>{address}</code>\n"
+        f"🏦 Адрес сеть перевода:\n<code>{address_set}</code>\n"
     )
 
     buttons = InlineKeyboardMarkup(inline_keyboard=[
