@@ -165,36 +165,6 @@ async def handle_group_file_or_photo(message: Message, state: FSMContext):
 async def manual_input(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("Введите последние 4 цифры карты:")
     await state.set_state(ManualCardFSM.waiting_for_card)
-    try:
-        # Получаем chat_id и msg_id из caption
-        chat_id, msg_id = callback.message.caption.split('\n')[:2]
-        chat_id = int(chat_id)
-        print(f"[DEBUG] Chat ID: {chat_id}, Msg ID: {msg_id}")
-    except:
-        await callback.message.answer("❗ Ошибка caption. Невозможно получить ID чата и сообщения.")
-        return
-    file = None
-    mime_type = None
-    if callback.message.photo:
-        photo = callback.message.photo[-1]
-        file = await callback.message.bot.get_file(callback.message.photo[-1].file_id)
-        file_bytes = await callback.message.bot.download_file(file.file_path)
-        mime_type = "image/jpeg"  # по умолчанию
-        is_pdf = False
-    elif callback.message.document:
-        photo = callback.message.document
-        mime_type = callback.message.document.mime_type
-        file = await callback.message.bot.get_file(callback.message.document.file_id)
-        file_bytes = await callback.message.bot.download_file(file.file_path)
-        is_pdf = mime_type in SUPPORTED_PDF_TYPES
-    else:
-        return  # unsupported
-    await state.update_data({
-        "file_id": photo.file_id,
-        "chat_id": chat_id,
-        "msg_id": msg_id,
-        "caption": callback.message.caption
-    })
     await callback.answer()
 
 
