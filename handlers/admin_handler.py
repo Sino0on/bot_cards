@@ -849,8 +849,29 @@ async def start_chat_settings(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("chatsettings:"))
 async def show_chat_settings(callback: CallbackQuery, state: FSMContext):
+    from services.json_writer import get_chat_by_id
+
     chat_id = int(callback.data.split(":")[1])
     await state.update_data(chat_id=chat_id)
+
+    chat = get_chat_by_id(chat_id)
+    if not chat:
+        await callback.answer("Чат не найден", show_alert=True)
+        return
+
+    settings = chat.get("settings", {})
+    rate = settings.get("usdt_rate", 89)
+    procent = settings.get("procent", 12)
+    procent_bonus = settings.get("procent_bonus", 6)
+    address = settings.get("address", "Не установлен")
+
+    text = (
+        f"⚙️ <b>Текущие настройки чата:</b>\n\n"
+        f"🔢 Курс: <b>{rate} KGS/USDT</b>\n"
+        f"💰 Процент комиссии: <b>{procent}%</b>\n"
+        f"🎯 Процент бонуса: <b>{procent_bonus}%</b>\n"
+        f"🏦 Адрес перевода:\n<code>{address}</code>\n"
+    )
 
     buttons = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔢 Курс (USDT)", callback_data="set_rate")],
@@ -859,9 +880,10 @@ async def show_chat_settings(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="🏦 Адрес перевода", callback_data="set_address")],
     ])
 
-    await callback.message.answer("Выберите параметр для изменения:", reply_markup=buttons)
+    await callback.message.answer(text, reply_markup=buttons, parse_mode="HTML")
     await state.set_state(ChatSettingsFSM.choosing_parameter)
     await callback.answer()
+
 
 
 @router.callback_query(ChatSettingsFSM.choosing_parameter)
