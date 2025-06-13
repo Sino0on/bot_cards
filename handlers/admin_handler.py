@@ -880,6 +880,7 @@ async def show_chat_settings(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="💰 Процент комиссии", callback_data="set_procent")],
         [InlineKeyboardButton(text="🎯 Процент бонуса", callback_data="set_bonus")],
         [InlineKeyboardButton(text="🏦 Адрес перевода", callback_data="set_address")],
+        [InlineKeyboardButton(text="🏦 Адрес сеть перевода", callback_data="set_address_set")],
     ])
 
     await callback.message.answer(text, reply_markup=buttons, parse_mode="HTML")
