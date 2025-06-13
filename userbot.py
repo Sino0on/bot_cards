@@ -44,6 +44,16 @@ async def react_to_transaction(event: events.NewMessage.Event):
             caption=caption,
             force_document=False
         )
+    # ➕ Новый блок для PDF
+    elif event.message.file and event.message.file.mime_type == "application/pdf":
+        caption = f"{chat_id}\n{event.message.id}"
+        peer = await client.get_input_entity(GROUP_ID)
+        await client.send_file(
+            entity=peer,
+            file=event.message.media.document,
+            caption=caption,
+            force_document=True  # PDF всегда отправляется как документ
+        )
 
 
 @client.on(events.NewMessage(chats=GROUP_ID))

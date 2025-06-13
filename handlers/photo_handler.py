@@ -13,6 +13,8 @@ router = Router()
 from services.ocr_service import extract_text
 from services.json_writer import find_manager_by_card_number
 
+GROUP_MANUAL_ID = -1004938030513
+
 from aiogram.filters.callback_data import CallbackData
 
 class AcceptCardCallback(CallbackData, prefix="accept"):
@@ -28,8 +30,15 @@ from services.json_writer import get_all_chats
 SUPPORTED_IMAGE_TYPES = ["image/jpeg", "image/png"]
 SUPPORTED_PDF_TYPES = ["application/pdf"]
 
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+
+class ManualCardFSM(StatesGroup):
+    waiting_for_card = State()
+
+
 @router.message((F.photo | F.document))
-async def handle_group_file_or_photo(message: Message):
+async def handle_group_file_or_photo(message: Message, state: FSMContext):
     if message.chat.id != GROUP_ID:
         return  # игнорируем другие чаты
 
@@ -69,7 +78,7 @@ async def handle_group_file_or_photo(message: Message):
     text = await extract_text(file_bytes, is_pdf=is_pdf)
     if not text:
         await message.answer("❗ Текст не распознан.")
-        return
+
 
     print("[OCR TEXT]", text)
 
@@ -116,6 +125,49 @@ async def handle_group_file_or_photo(message: Message):
                         parse_mode="Markdown"
                     )
                 return  # остановимся на первом найденном
+    # Если дошли до сюда — карта не найдена или текст пустой
+    # Отправим в группу ручной обработки
+
+
+    # Сохраняем инфу в state
+    await state.update_data({
+        "file_id": photo.file_id,
+        "chat_id": chat_id,
+        "msg_id": msg_id,
+        "caption": message.caption
+    })
+
+    manual_buttons = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✍️ Вручную вписать карту", callback_data="manual_input_card"),
+            InlineKeyboardButton(text="❌ Отменить", callback_data="manual_cancel")
+        ]
+    ])
+
+    # Отправим в группу для проверки
+    if message.photo:
+        await message.bot.send_photo(
+            chat_id=GROUP_MANUAL_ID,
+            photo=message.photo[-1].file_id,
+            caption=f"❗ Чек без совпадений\nchat_id: {chat_id}\nmsg_id: {msg_id}",
+            reply_markup=manual_buttons
+        )
+    elif message.document:
+        await message.bot.send_document(
+            chat_id=GROUP_MANUAL_ID,
+            document=message.document.file_id,
+            caption=f"❗ Чек без совпадений\nchat_id: {chat_id}\nmsg_id: {msg_id}",
+            reply_markup=manual_buttons
+        )
+
+
+@router.callback_query(F.data == "manual_input_card")
+async def manual_input(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("Введите последние 4 цифры карты:")
+    await state.set_state(ManualCardFSM.waiting_for_card)
+    await callback.answer()
+
+
 
 
 
@@ -226,3 +278,53 @@ async def finalize_transaction(message: Message, state: FSMContext):
 
     await state.clear()
 
+@router.message(ManualCardFSM.waiting_for_card)
+async def process_manual_card_input(message: Message, state: FSMContext):
+    input_card = message.text.strip()
+
+    if not input_card.isdigit() or len(input_card) != 4:
+        await message.answer("❗ Введите 4 цифры.")
+        return
+
+    data = await state.get_data()
+    matched = None
+    for manager in load_data().get("managers", []):
+        if not manager.get("status"):
+            continue
+        for i, card in enumerate(manager.get("cards", [])):
+            if card["card"][-4:] == input_card and card['active']:
+                matched = (manager, card["card"], i)
+                break
+        if matched:
+            break
+
+    if not matched:
+        await message.answer("❌ Карта не найдена.")
+        await state.clear()
+        return
+
+    manager, full_card, index = matched
+    buttons = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="✅ Принять",
+                callback_data=AcceptCardCallback(
+                    card=full_card,
+                    chat_id=data["chat_id"],
+                    msg_id=data["msg_id"]
+                ).pack()
+            ),
+            InlineKeyboardButton(text="❌ Отказать", callback_data="decline_card")
+        ]
+    ])
+
+    await message.bot.send_document(
+        chat_id=manager["id"],
+        document=data["file_id"],
+        caption=f"📸 Чек был найден вручную по карте `{full_card}`\n",
+        reply_markup=buttons,
+        parse_mode="Markdown"
+    )
+
+    await message.answer("✅ Чек успешно отправлен оператору.")
+    await state.clear()

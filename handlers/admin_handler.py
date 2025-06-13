@@ -9,7 +9,7 @@ from decouple import config
 from keyboards import get_keyboard_buttons
 from services.json_writer import save_manager, edit_card_number, load_data, get_all_chats, toggle_chat_status, \
     delete_chat, get_chat_status, update_request_status, get_request_by_id, credit_operator_bonus, set_operator_active, \
-    update_procent, update_procent_bonus
+    update_procent, update_procent_bonus, update_address_set, save_data
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services.json_writer import get_cards_for_manager
@@ -816,4 +816,171 @@ async def process_transfer_amount(message: Message, state: FSMContext):
     except Exception as e:
         print(f"[ERROR] Не удалось уведомить группу: {e}")
 
+    await state.clear()
+
+
+from aiogram.fsm.state import StatesGroup, State
+
+class ChatSettingsFSM(StatesGroup):
+    choosing_chat = State()
+    choosing_parameter = State()
+    entering_value = State()
+
+
+@router.message(F.text == "⚙️ Настройки чата")
+async def start_chat_settings(message: Message, state: FSMContext):
+    from services.json_writer import get_all_chats
+
+    chats = get_all_chats()
+    if not chats:
+        await message.answer("Нет доступных чатов.")
+        return
+
+    buttons = [
+        [InlineKeyboardButton(text=chat["name"], callback_data=f"chat_settings:{chat['id']}")]
+        for chat in chats
+    ]
+
+    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await message.answer("Выберите чат для изменения настроек:", reply_markup=markup)
+    await state.set_state(ChatSettingsFSM.choosing_chat)
+
+
+
+@router.callback_query(F.data.startswith("chat_settings:"))
+async def show_chat_settings(callback: CallbackQuery, state: FSMContext):
+    chat_id = int(callback.data.split(":")[1])
+    await state.update_data(chat_id=chat_id)
+
+    buttons = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔢 Курс (USDT)", callback_data="set_rate")],
+        [InlineKeyboardButton(text="💰 Процент комиссии", callback_data="set_procent")],
+        [InlineKeyboardButton(text="🎯 Процент бонуса", callback_data="set_bonus")],
+        [InlineKeyboardButton(text="🏦 Адрес перевода", callback_data="set_address")],
+    ])
+
+    await callback.message.answer("Выберите параметр для изменения:", reply_markup=buttons)
+    await state.set_state(ChatSettingsFSM.choosing_parameter)
+    await callback.answer()
+
+
+@router.callback_query(ChatSettingsFSM.choosing_parameter)
+async def ask_new_value(callback: CallbackQuery, state: FSMContext):
+    param = callback.data
+    await state.update_data(parameter=param)
+
+    text_map = {
+        "set_rate": "Введите новый курс USDT:",
+        "set_procent": "Введите новый процент комиссии:",
+        "set_bonus": "Введите новый процент бонуса:",
+        "set_address": "Введите новый адрес LTC:",
+        "set_address_set": "Введите новый сеть LTC:"
+    }
+
+    await callback.message.answer(text_map[param])
+    await state.set_state(ChatSettingsFSM.entering_value)
+    await callback.answer()
+
+
+@router.message(ChatSettingsFSM.entering_value)
+async def save_new_setting(message: Message, state: FSMContext):
+    from services.json_writer import update_chat_settings
+
+    data = await state.get_data()
+    chat_id = data["chat_id"]
+    param = data["parameter"]
+    value = message.text.strip()
+
+    if param in ["set_rate", "set_procent", "set_bonus"]:
+        try:
+            value = float(value)
+        except:
+            await message.answer("❗ Введите корректное число.")
+            return
+
+    update_chat_settings(chat_id, param, value)
+    await message.answer("✅ Значение успешно обновлено.")
+    await state.clear()
+
+
+class ManualTransactionFSM(StatesGroup):
+    waiting_for_card = State()
+    waiting_for_amount = State()
+
+
+@router.message(F.text == "➕ Добавить чек вручную")
+async def manual_transaction_start(message: Message, state: FSMContext):
+    await message.answer("Введите последние 4 цифры карты:")
+    await state.set_state(ManualTransactionFSM.waiting_for_card)
+
+
+
+
+@router.message(ManualTransactionFSM.waiting_for_card)
+async def handle_card_input(message: Message, state: FSMContext):
+    input_card = message.text.strip()
+
+    if not input_card.isdigit() or len(input_card) != 4:
+        await message.answer("❗ Введите 4 цифры.")
+        return
+
+    data = load_data()
+
+    matched = None
+    for chat in data.get("chats", []):
+        for operator_id in chat.get("managers", []):
+            manager = next((m for m in data.get("managers", []) if m["id"] == operator_id), None)
+            if not manager:
+                continue
+            for card in manager.get("cards", []):
+                if card["card"][-4:] == input_card and card.get("active", True):
+                    matched = {
+                        "chat_id": chat["id"],
+                        "operator_id": operator_id,
+                        "card_number": card["card"]
+                    }
+                    break
+            if matched:
+                break
+        if matched:
+            break
+
+    if not matched:
+        await message.answer("❌ Карта не найдена ни в одном чате.")
+        await state.clear()
+        return
+
+    await state.update_data(**matched)
+    await message.answer("✅ Карта найдена. Введите сумму в KGS:")
+    await state.set_state(ManualTransactionFSM.waiting_for_amount)
+
+
+
+@router.message(ManualTransactionFSM.waiting_for_amount)
+async def handle_amount_input(message: Message, state: FSMContext):
+    amount_text = message.text.strip()
+    if not amount_text.isdigit():
+        await message.answer("❗ Введите сумму числом.")
+        return
+
+    amount = int(amount_text)
+    data = await state.get_data()
+
+    # Добавляем транзакцию в чат
+    from datetime import datetime
+    chats = load_data()
+    for chat in chats.get("chats", []):
+        if chat["id"] == data["chat_id"]:
+            chat.setdefault("transactions", []).append({
+                "msg_id": 0,
+                "operator": data["operator_id"],
+                "card": data["card_number"],
+                "money": amount,
+                "timestamp": datetime.now().strftime("%d.%m.%Y %H:%M")
+            })
+            break
+
+    save_data(chats)
+
+    await message.answer("✅ Транзакция успешно добавлена.")
     await state.clear()

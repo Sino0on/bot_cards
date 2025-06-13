@@ -17,7 +17,8 @@ def get_keyboard_buttons(user_id: int = None):
         ])
         buttons.append([
             KeyboardButton(text="💼 Баланс карт"),
-            KeyboardButton(text="💰 Мой баланс")
+            KeyboardButton(text="💰 Мой баланс"),
+            KeyboardButton(text="➕ Добавить чек вручную")
         ])
 
     if check_admin(user_id):
@@ -28,7 +29,7 @@ def get_keyboard_buttons(user_id: int = None):
         ])
         buttons.append([
             KeyboardButton(text="💬 Чаты"),  # управление чатами
-            KeyboardButton(text="📊 Балансы"),  # управление чатами
+            KeyboardButton(text="⚙️ Настройки чата"),
             KeyboardButton(text="💸 Отправка денег в шоп")
         ])
 

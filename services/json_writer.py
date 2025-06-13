@@ -65,6 +65,7 @@ def add_card_to_manager(user_id, card_number, fio):
             manager["cards"].append({
                 "card": card_number,
                 "full_name": fio,
+                "active": True,
                 "money": 0
             })
             with open(DATA_PATH, "w", encoding="utf-8") as f:
@@ -586,7 +587,7 @@ def get_cards(user_id: int):
     for manager in data.get("managers", []):
         if manager["id"] == user_id:
             cards = manager.get("cards", [])
-            return [card['card'] for card in cards]
+            return [card['card'] for card in cards if card['active']]
     return []
 
 def find_fullname_by_card(card_arg: str):
@@ -596,3 +597,34 @@ def find_fullname_by_card(card_arg: str):
             if card['card'] == card_arg:
                 return card['full_name']
     return ''
+
+
+def toggle_card_status(user_id, card_number):
+    data = load_data()
+    for manager in data.get("managers", []):
+        if manager["id"] == user_id:
+            for card in manager.get("cards", []):
+                if card["card"] == card_number:
+                    card["active"] = not card.get("active", True)
+                    save_data(data)
+                    return card["active"]
+    return None
+
+
+def update_chat_settings(chat_id, param, value):
+    data = load_data()
+    for chat in data.get("chats", []):
+        if chat["id"] == chat_id:
+            settings = chat.setdefault("settings", {})
+            if param == "set_rate":
+                settings["usdt_rate"] = value
+            elif param == "set_procent":
+                settings["procent"] = value
+            elif param == "set_bonus":
+                settings["procent_bonus"] = value
+            elif param == "set_address":
+                settings["address"] = value
+            elif param == "set_address_set":
+                settings["address_set"] = value
+            break
+    save_data(data)

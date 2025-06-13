@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 
 from keyboards import get_keyboard_buttons
 from services.json_writer import save_manager, edit_card_number, get_usdt_rate, add_group_withdraw_request, \
-    deduct_from_card, get_user_by_id, get_cards, check_card_to_manager, find_fullname_by_card
+    deduct_from_card, get_user_by_id, get_cards, check_card_to_manager, find_fullname_by_card, toggle_card_status
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from services.json_writer import get_cards_for_manager
@@ -199,6 +199,12 @@ async def show_card_info(callback: CallbackQuery):
                     [
                         InlineKeyboardButton(text="🗑 Удалить карту", callback_data=f"delete_{card['card']}"),
                         InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"edit_{card['card']}")
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="🔴 Выключить" if card["active"] else "🟢 Включить",
+                            callback_data=f"toggle_card:{card_number}"
+                        )
                     ]
                 ])
 
@@ -227,6 +233,21 @@ async def show_card_info(callback: CallbackQuery):
                 return
 
     await callback.answer("Карта не найдена", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("toggle_card:"))
+async def toggle_card(callback: CallbackQuery):
+    card_number = callback.data.split(":")[1]
+    user_id = callback.from_user.id
+
+    result = toggle_card_status(user_id, card_number)
+    if result is None:
+        await callback.answer("❗ Карта не найдена.", show_alert=True)
+        return
+
+    status_text = "🟢 Карта активна" if result else "🔴 Карта выключена"
+    await callback.message.edit_caption(f"💳 Карта: ...{card_number}\n{status_text}")
+    await callback.answer()
 
 
 from services.json_writer import delete_card_for_manager
@@ -587,11 +608,15 @@ async def group_balance_report(message: Message):
 
     transactions = group.get("transactions", [])
     if not transactions:
-        await message.answer("📭 Пока нет активных транзакций.")
+        await message.answer(f"📭 Пока нет активных транзакций.\n\n💰 Остаток баланса: *{group['balance']} USD*\n📊 Всего заработано: *{group['all_balance']} USD*")
+
         return
 
-    settings = get_settings()
+    settings = group.get("settings", {})
     rate = settings.get("usdt_rate", 89)
+    procent = settings.get("procent", 12)
+    procent_bonus = settings.get("procent_bonus", 6)
+    address = settings.get("address", "...")
 
     # 1. Формируем список
     total_kgs = 0
@@ -620,7 +645,7 @@ async def group_balance_report(message: Message):
 
     # 2. Итоги
     data = load_data()
-    procent = data.get("settings", {}).get("procent", 12)
+    # procent = data.get("settings", {}).get("procent", 12)
     usd = round(total_kgs / rate, 2)
     company_cut = round(usd * procent / 100, 2)
 
@@ -664,8 +689,11 @@ async def handle_group_withdraw(callback: CallbackQuery):
         await callback.answer("❗ Нет активных транзакций", show_alert=True)
         return
 
-    settings = get_settings()
+    settings = chat.get("settings", {})
     rate = settings.get("usdt_rate", 89)
+    procent = settings.get("procent", 12)
+    procent_bonus = settings.get("procent_bonus", 6)
+    address = settings.get("address", "...")
 
     # Считаем общую сумму
     total_kgs = sum(tx["money"] for tx in transactions)
@@ -746,7 +774,11 @@ async def handle_group_withdraw(callback: CallbackQuery):
         except Exception:
             pass
     # Отправим каждому оператору инструкции по переводу средств
-    address = settings.get("address", "LTC_ADDRESS_NOT_SET")
+    settings = chat.get("settings", {})
+    rate = settings.get("usdt_rate", 89)
+    procent = settings.get("procent", 12)
+    procent_bonus = settings.get("procent_bonus", 6)
+    address = settings.get("address", "...")
 
     operator_transactions = {}
     for tx in transactions:
