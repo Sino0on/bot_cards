@@ -1001,7 +1001,7 @@ async def handle_amount_input(message: Message, state: FSMContext):
                 "operator": data["operator_id"],
                 "card": data["card_number"],
                 "money": amount,
-                "timestamp": datetime.now().strftime("%d.%m.%Y %H:%M")
+                "timestamp": datetime.now().isoformat()
             })
             break
 
