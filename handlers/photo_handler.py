@@ -13,7 +13,7 @@ router = Router()
 from services.ocr_service import extract_text
 from services.json_writer import find_manager_by_card_number
 
-GROUP_MANUAL_ID = -1004938030513
+GROUP_MANUAL_ID = -4938030513
 
 from aiogram.filters.callback_data import CallbackData
 
