@@ -837,7 +837,7 @@ async def start_chat_settings(message: Message, state: FSMContext):
         return
 
     buttons = [
-        [InlineKeyboardButton(text=chat["name"], callback_data=f"chat_settings:{chat['id']}")]
+        [InlineKeyboardButton(text=chat["name"], callback_data=f"chatsettings:{chat['id']}")]
         for chat in chats
     ]
 
@@ -847,7 +847,7 @@ async def start_chat_settings(message: Message, state: FSMContext):
 
 
 
-@router.callback_query(F.data.startswith("chat_settings:"))
+@router.callback_query(F.data.startswith("chatsettings:"))
 async def show_chat_settings(callback: CallbackQuery, state: FSMContext):
     chat_id = int(callback.data.split(":")[1])
     await state.update_data(chat_id=chat_id)
