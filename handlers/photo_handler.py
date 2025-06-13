@@ -165,6 +165,9 @@ async def handle_group_file_or_photo(message: Message, state: FSMContext):
 async def manual_input(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("Введите последние 4 цифры карты:")
     await state.set_state(ManualCardFSM.waiting_for_card)
+    data = await state.get_data()
+    print("[FSM DATA]", data)
+
     await callback.answer()
 
 
