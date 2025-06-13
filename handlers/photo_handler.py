@@ -42,7 +42,7 @@ class ManualCardCallback(CallbackData, prefix="manual"):
     file_id: str
     chat_id: int
     msg_id: int
-    caption: str
+    # caption: str
 
 
 @router.message((F.photo | F.document))
