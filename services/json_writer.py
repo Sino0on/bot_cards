@@ -643,7 +643,7 @@ import uuid
 from datetime import datetime
 
 
-def add_manual_check(file_id, chat_id, msg_id):
+def add_manual_check(file_id, file_type, chat_id, msg_id):
     data = load_data()
     manual_checks = data.setdefault("manual_checks", [])
 
@@ -651,10 +651,11 @@ def add_manual_check(file_id, chat_id, msg_id):
     manual_checks.append({
         "id": check_id,
         "file_id": file_id,
+        "file_type": file_type,  # вот сюда
         "chat_id": chat_id,
         "msg_id": msg_id,
         "timestamp": datetime.now().isoformat()
     })
     save_data(data)
-    return check_id  # вернем id для кнопки
+    return check_id
 

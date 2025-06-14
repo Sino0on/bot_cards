@@ -138,7 +138,7 @@ async def handle_group_file_or_photo(message: Message, state: FSMContext):
     #     "caption": message.caption
     # })
 
-    check_id = add_manual_check(photo.file_id, chat_id, msg_id)
+    check_id = add_manual_check(photo.file_id, 'photo' if message.photo else 'document', chat_id, msg_id)
 
     buttons = InlineKeyboardMarkup(inline_keyboard=[
         [
@@ -313,12 +313,26 @@ async def process_manual_card_input(message: Message, state: FSMContext):
         return
 
     data = await state.get_data()
+    check_id = data.get("check_id")
+
+    from services.json_writer import get_manual_check_by_id
+    check = get_manual_check_by_id(check_id)
+    if not check:
+        await message.answer("❌ Чек не найден в базе.")
+        await state.clear()
+        return
+
+    file_id = check["file_id"]
+    chat_id = check["chat_id"]
+    msg_id = check["msg_id"]
+
+    # Поиск карты:
     matched = None
     for manager in load_data().get("managers", []):
         if not manager.get("status"):
             continue
         for i, card in enumerate(manager.get("cards", [])):
-            if card["card"][-4:] == input_card and card['active']:
+            if card["card"][-4:] == input_card and card.get('active', True):
                 matched = (manager, card["card"], i)
                 break
         if matched:
@@ -330,27 +344,40 @@ async def process_manual_card_input(message: Message, state: FSMContext):
         return
 
     manager, full_card, index = matched
+
     buttons = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
                 text="✅ Принять",
                 callback_data=AcceptCardCallback(
                     card=full_card,
-                    chat_id=data["chat_id"],
-                    msg_id=data["msg_id"]
+                    chat_id=chat_id,
+                    msg_id=msg_id
                 ).pack()
             ),
             InlineKeyboardButton(text="❌ Отказать", callback_data="decline_card")
         ]
     ])
 
-    await message.bot.send_document(
-        chat_id=manager["id"],
-        document=data["file_id"],
-        caption=f"📸 Чек был найден вручную по карте `{full_card}`\n",
-        reply_markup=buttons,
-        parse_mode="Markdown"
-    )
+    file_id = check["file_id"]
+    file_type = check.get("file_type", "document")  # по умолчанию документ, чтобы не ломалось
+
+    if file_type == "photo":
+        await message.bot.send_photo(
+            chat_id=manager["id"],
+            photo=file_id,
+            caption=f"📸 Чек был найден вручную по карте `{full_card}`\n",
+            reply_markup=buttons,
+            parse_mode="Markdown"
+        )
+    else:
+        await message.bot.send_document(
+            chat_id=manager["id"],
+            document=file_id,
+            caption=f"📸 Чек был найден вручную по карте `{full_card}`\n",
+            reply_markup=buttons,
+            parse_mode="Markdown"
+        )
 
     await message.answer("✅ Чек успешно отправлен оператору.")
     await state.clear()
