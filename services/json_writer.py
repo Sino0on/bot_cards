@@ -168,7 +168,18 @@ def add_chat(chat_id, title):
         "name": title,
         "status": True,
         "managers": [],
-        "transactions": []
+        "balance": 0,
+        "all_balance": 0,
+        "settings": {
+            "address": "LNfZuNWYDmGPiwq4KNRUNgAFxtn7bqjgX4",
+            "address_set": "BEP20",
+            "limit": 500.0,
+            "usdt_rate": 89.0,
+            "procent": 12,
+            "procent_bonus": 12
+        },
+        "transactions": [],
+        "old_transactions": [],
     })
     with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
