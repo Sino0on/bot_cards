@@ -332,6 +332,7 @@ async def process_manual_card_input(message: Message, state: FSMContext):
         if not manager.get("status"):
             continue
         for i, card in enumerate(manager.get("cards", [])):
+            print(card["card"][-4:], input_card)
             if card["card"][-4:] == input_card and card.get('active', True):
                 matched = (manager, card["card"], i)
                 break
