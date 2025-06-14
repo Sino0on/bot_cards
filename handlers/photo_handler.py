@@ -181,6 +181,7 @@ async def manual_input(callback: CallbackQuery, callback_data: ManualCardCallbac
         return
 
     await state.update_data({
+        "check_id": check_id,
         "file_id": check["file_id"],
         "chat_id": check["chat_id"],
         "msg_id": check["msg_id"]
@@ -316,6 +317,7 @@ async def process_manual_card_input(message: Message, state: FSMContext):
     check_id = data.get("check_id")
 
     from services.json_writer import get_manual_check_by_id
+    print(check_id)
     check = get_manual_check_by_id(check_id)
     if not check:
         await message.answer("❌ Чек не найден в базе.")
@@ -332,7 +334,6 @@ async def process_manual_card_input(message: Message, state: FSMContext):
         if not manager.get("status"):
             continue
         for i, card in enumerate(manager.get("cards", [])):
-            print(card["card"][-4:], input_card)
             if card["card"][-4:] == input_card and card.get('active', True):
                 matched = (manager, card["card"], i)
                 break
