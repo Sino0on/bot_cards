@@ -1,17 +1,14 @@
 from aiogram import Dispatcher, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from decouple import config
-from services.ocr_service import text_contains_number
 from services.json_writer import load_data, find_manager_by_user_id, get_all_chats, get_formatted_cards, \
-    add_manual_checkfrom services.ocr_service import extract_text
+    add_manual_check
 
 from handlers.manager_handler import AcceptMoney
 
 
 router = Router()
 from services.ocr_service import extract_text
-from services.json_writer import find_manager_by_card_number
 
 GROUP_MANUAL_ID = -4938030513
 
