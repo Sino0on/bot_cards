@@ -630,3 +630,10 @@ def update_chat_settings(chat_id, param, value):
                 settings["address_set"] = value
             break
     save_data(data)
+
+def get_manual_check_by_id(check_id):
+    data = load_data()
+    for check in data.get("manual_checks", []):
+        if check["id"] == check_id:
+            return check
+    return None

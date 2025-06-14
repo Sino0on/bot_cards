@@ -3,7 +3,8 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from decouple import config
 from services.ocr_service import text_contains_number
-from services.json_writer import load_data, find_manager_by_user_id, get_all_chats, get_formatted_cards
+from services.json_writer import load_data, find_manager_by_user_id, get_all_chats, get_formatted_cards, \
+    add_manual_check
 from services.ocr_service import extract_text
 
 from handlers.manager_handler import AcceptMoney
@@ -38,11 +39,7 @@ class ManualCardFSM(StatesGroup):
 
 from aiogram.filters.callback_data import CallbackData
 
-class ManualCardCallback(CallbackData, prefix="manual"):
-    file_id: str
-    chat_id: int
-    msg_id: int
-    # caption: str
+
 
 
 @router.message((F.photo | F.document))
@@ -145,15 +142,13 @@ async def handle_group_file_or_photo(message: Message, state: FSMContext):
     #     "caption": message.caption
     # })
 
+    check_id = add_manual_check(photo.file_id, chat_id, msg_id)
+
     buttons = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
                 text="✍️ Вручную вписать карту",
-                callback_data=ManualCardCallback(
-                    file_id=photo.file_id,
-                    chat_id=chat_id,
-                    msg_id=msg_id
-                ).pack()
+                callback_data=f"manual:{check_id}"
             ),
             InlineKeyboardButton(text="❌ Отменить", callback_data="manual_cancel")
         ]
@@ -175,19 +170,31 @@ async def handle_group_file_or_photo(message: Message, state: FSMContext):
             reply_markup=buttons
         )
 
+class ManualCardCallback(CallbackData, prefix="manual"):
+    id: int
+
 
 @router.callback_query(ManualCardCallback.filter())
 async def manual_input(callback: CallbackQuery, callback_data: ManualCardCallback, state: FSMContext):
-    # Здесь у тебя ВСЕ ДАННЫЕ есть в callback_data
+    check_id = callback_data.id
+
+    from services.json_writer import get_manual_check_by_id
+    check = get_manual_check_by_id(check_id)
+    if not check:
+        await callback.answer("❗ Чек не найден", show_alert=True)
+        return
+
     await state.update_data({
-        "file_id": callback_data.file_id,
-        "chat_id": callback_data.chat_id,
-        "msg_id": callback_data.msg_id
+        "file_id": check["file_id"],
+        "chat_id": check["chat_id"],
+        "msg_id": check["msg_id"]
     })
 
     await callback.message.answer("Введите последние 4 цифры карты:")
     await state.set_state(ManualCardFSM.waiting_for_card)
     await callback.answer()
+
+
 
 
 
