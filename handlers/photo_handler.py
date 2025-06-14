@@ -4,8 +4,7 @@ from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, C
 from decouple import config
 from services.ocr_service import text_contains_number
 from services.json_writer import load_data, find_manager_by_user_id, get_all_chats, get_formatted_cards, \
-    add_manual_check
-from services.ocr_service import extract_text
+    add_manual_checkfrom services.ocr_service import extract_text
 
 from handlers.manager_handler import AcceptMoney
 
