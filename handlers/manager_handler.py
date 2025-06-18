@@ -472,51 +472,51 @@ from services.json_writer import get_settings, get_cards_for_manager
 from aiogram import types
 from aiogram.types import Message
 
-@router.message(F.text == "💼 Баланс карт")
-async def show_balance_summary(message: Message):
-    settings = get_settings()
-    limit = settings.get("limit", 800.0)
-    usdt_rate = get_usdt_rate()
-
-    cards = get_cards_for_manager(message.from_user.id)
-    if not cards:
-        await message.answer("У тебя пока нет ни одной карты.")
-        return
-
-    total_usdt = 0
-    card_lines = []
-
-    for card in cards:
-        card_number = card["card"]
-        fiat = card["money"]
-        usdt = round(fiat / usdt_rate, 2)
-        total_usdt += usdt
-
-        # masked = f"{card_number[-4:]}"
-        card_display = f"ZHE *{card_number}"
-
-        card_lines.append(
-            f"💳 {card_display} KGS\n"
-            f"   🌐 ФИАТ: {fiat:.2f}\n"
-            f"   💵 USDT: {usdt:.2f}"
-        )
-
-    remaining = round(limit - total_usdt, 2)
-
-    text = (
-        f"🔰 <b>Лимит:</b> {limit:.2f} USDT\n\n"
-        f"🧩 <b>Фиатные счета:</b>\n"
-        + "\n\n".join(card_lines) +
-        "\n\n📊 <b>Итого:</b>\n"
-        f"   💵 USDT: {total_usdt:.2f}\n"
-        f"   🔰 Лимит: {remaining:.2f}"
-    )
-    reply_markup = InlineKeyboardMarkup(
-        # inline_keyboard=[
-        #     [InlineKeyboardButton(text="🔁 Закончить круг", callback_data="finish_round")]
-        # ]
-    )
-    await message.answer(text, parse_mode="HTML", reply_markup=reply_markup)
+# @router.message(F.text == "💼 Баланс карт")
+# async def show_balance_summary(message: Message):
+#     settings = get_settings()
+#     limit = settings.get("limit", 800.0)
+#     usdt_rate = get_usdt_rate()
+#
+#     cards = get_cards_for_manager(message.from_user.id)
+#     if not cards:
+#         await message.answer("У тебя пока нет ни одной карты.")
+#         return
+#
+#     total_usdt = 0
+#     card_lines = []
+#
+#     for card in cards:
+#         card_number = card["card"]
+#         fiat = card["money"]
+#         usdt = round(fiat / usdt_rate, 2)
+#         total_usdt += usdt
+#
+#         # masked = f"{card_number[-4:]}"
+#         card_display = f"ZHE *{card_number}"
+#
+#         card_lines.append(
+#             f"💳 {card_display} KGS\n"
+#             f"   🌐 ФИАТ: {fiat:.2f}\n"
+#             f"   💵 USDT: {usdt:.2f}"
+#         )
+#
+#     remaining = round(limit - total_usdt, 2)
+#
+#     text = (
+#         f"🔰 <b>Лимит:</b> {limit:.2f} USDT\n\n"
+#         f"🧩 <b>Фиатные счета:</b>\n"
+#         + "\n\n".join(card_lines) +
+#         "\n\n📊 <b>Итого:</b>\n"
+#         f"   💵 USDT: {total_usdt:.2f}\n"
+#         f"   🔰 Лимит: {remaining:.2f}"
+#     )
+#     # reply_markup = InlineKeyboardMarkup(
+#         # inline_keyboard=[
+#         #     [InlineKeyboardButton(text="🔁 Закончить круг", callback_data="finish_round")]
+#         # ]
+#     # )
+#     await message.answer(text, parse_mode="HTML", reply_markup=reply_markup)
 
 
 @router.callback_query(F.data == "finish_round")
