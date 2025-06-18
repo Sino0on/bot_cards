@@ -1045,7 +1045,7 @@ async def start_reset_balance(message: Message, state: FSMContext):
         )] for m in managers
     ]
 
-    await message.answer("Выберите оператора для сброса баланса карт:",
+    await message.answer("Выберите оператора для сброса баланса:",
                          reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
     await state.set_state(ResetBalanceFSM.choosing_operator)
 
@@ -1062,12 +1062,12 @@ async def reset_operator_balance(callback: CallbackQuery, state: FSMContext):
         await callback.answer("❗ Оператор не найден", show_alert=True)
         return
 
-    for card in manager.get("cards", []):
-        card["money"] = 0
+
+    manager["balance"] = 0
 
     save_data(data)
 
-    await callback.message.answer(f"✅ Баланс всех карт у оператора <b>{manager.get('name')}</b> успешно сброшен.",
+    await callback.message.answer(f"✅ Баланс у оператора <b>{manager.get('name')}</b> успешно сброшен.",
                                   parse_mode="HTML")
     await callback.answer()
     await state.clear()
