@@ -442,6 +442,13 @@ async def back_to_home_m(message: Message):
 from datetime import datetime, timedelta
 
 
+@router.message(F.text == "❌ Отмена")
+async def my_transactions(message: Message):
+    await message.answer("❌ Отменено.",
+                         reply_markup=get_keyboard_buttons(message.from_user.id))
+    return
+
+
 @router.message(F.text == "📄 Мои транзакции")
 async def my_transactions(message: Message):
     from services.json_writer import get_transactions_by_operator
