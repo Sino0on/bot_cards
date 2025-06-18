@@ -11,7 +11,6 @@ def get_keyboard_buttons(user_id: int = None):
         buttons.append([
             KeyboardButton(text="💳 Добавить карту"),
             KeyboardButton(text="💳 Мои карты"),
-            KeyboardButton(text="📄 Мои транзакции")
 
 
         ])
@@ -25,12 +24,14 @@ def get_keyboard_buttons(user_id: int = None):
         buttons.append([
             KeyboardButton(text="🧠 Добавить менеджера"),
             KeyboardButton(text="👨‍💼 Операторы"),
-            KeyboardButton(text="⚙️ Настройки системы")
+            KeyboardButton(text="⚙️ Настройки системы"),
+            KeyboardButton(text="🔄 Сброс баланса")
         ])
         buttons.append([
             KeyboardButton(text="💬 Чаты"),  # управление чатами
             KeyboardButton(text="⚙️ Настройки чата"),
-            KeyboardButton(text="💸 Отправка денег в шоп")
+            KeyboardButton(text="💸 Отправка денег в шоп"),
+            KeyboardButton(text="👑 Управление админами")
         ])
 
     keyboard = types.ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)

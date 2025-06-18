@@ -2,6 +2,8 @@ import json
 
 from decouple import config
 
+from services.json_writer import load_data
+
 
 def check_manager(user_id: int):
     print(user_id)
@@ -19,10 +21,6 @@ def check_manager(user_id: int):
 
 
 def check_admin(user_id: int):
-    try:
-        admins = config('ADMINS').split(',')
-
-        return str(user_id) in admins
-    except:
-        pass
-    return False
+    data = load_data()  # ← загружаем из db.json
+    admins = data.get("admins", [])
+    return int(user_id) in admins

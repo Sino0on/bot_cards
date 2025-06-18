@@ -670,3 +670,31 @@ def add_manual_check(file_id, file_type, chat_id, msg_id):
     save_data(data)
     return check_id
 
+
+def get_all_card_balances():
+    data = load_data()
+    lines = []
+
+    for manager in data.get("managers", []):
+        name = manager.get("name", "Без имени")
+        manager_id = manager.get("id")
+        cards = manager.get("cards", [])
+
+        if not cards:
+            continue
+
+        lines.append(f"👤 <b>{name}</b>")
+
+        for idx, card in enumerate(cards, 1):
+            last4 = card["card"][-4:]
+            money = card.get("money", 0)
+            active = card.get("active", True)
+            status = "🟢 Активна" if active else "🔴 Выключена"
+
+            lines.append(f"   💳 Карта ({idx}) ...{last4} — {money} сом  {status}")
+
+        lines.append("")  # Пустая строка между операми
+
+    return "\n".join(lines)
+
+

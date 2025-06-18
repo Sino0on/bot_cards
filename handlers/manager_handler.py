@@ -656,8 +656,8 @@ async def group_balance_report(message: Message):
     lines.append(f"{total_kgs} / {rate} = <b>{usd} USD</b>")
     lines.append(f"{usd} - {procent}% = <b>{final_usd} USD</b>")
     lines.append("")
-    lines.append(f"💰 Остаток баланса: *{group['balance']} USD*")
-    lines.append(f"📊 Всего заработано: *{group['all_balance']} USD*")
+    # lines.append(f"💰 Остаток баланса: *{group['balance']} USD*")
+    # lines.append(f"📊 Всего заработано: *{group['all_balance']} USD*")
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Вывод готов", callback_data=f"group_withdraw:{chat_id}")]

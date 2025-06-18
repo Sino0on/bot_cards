@@ -1009,3 +1009,123 @@ async def handle_amount_input(message: Message, state: FSMContext):
 
     await message.answer("✅ Транзакция успешно добавлена.")
     await state.clear()
+
+
+@router.message(F.text == "💼 Баланс карт")
+async def admin_full_card_balance(message: Message):
+    from services.json_writer import get_all_card_balances
+
+    text = get_all_card_balances()
+
+    if not text.strip():
+        await message.answer("❗ Нет зарегистрированных карт.")
+        return
+
+    await message.answer(f"📊 <b>Общий баланс всех карт:</b>\n\n{text}", parse_mode="HTML")
+
+class ResetBalanceFSM(StatesGroup):
+    choosing_operator = State()
+
+
+@router.message(F.text == "🔄 Сброс баланса")
+async def start_reset_balance(message: Message, state: FSMContext):
+    from services.json_writer import load_data
+
+    data = load_data()
+    managers = data.get("managers", [])
+
+    if not managers:
+        await message.answer("❗ Нет зарегистрированных операторов.")
+        return
+
+    buttons = [
+        [InlineKeyboardButton(
+            text=f"{m.get('name', 'Без имени')} ({m['id']})",
+            callback_data=f"resetbal:{m['id']}"
+        )] for m in managers
+    ]
+
+    await message.answer("Выберите оператора для сброса баланса карт:",
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await state.set_state(ResetBalanceFSM.choosing_operator)
+
+
+@router.callback_query(F.data.startswith("resetbal:"))
+async def reset_operator_balance(callback: CallbackQuery, state: FSMContext):
+    from services.json_writer import load_data, save_data
+
+    op_id = int(callback.data.split(":")[1])
+    data = load_data()
+
+    manager = next((m for m in data.get("managers", []) if m["id"] == op_id), None)
+    if not manager:
+        await callback.answer("❗ Оператор не найден", show_alert=True)
+        return
+
+    for card in manager.get("cards", []):
+        card["money"] = 0
+
+    save_data(data)
+
+    await callback.message.answer(f"✅ Баланс всех карт у оператора <b>{manager.get('name')}</b> успешно сброшен.",
+                                  parse_mode="HTML")
+    await callback.answer()
+    await state.clear()
+
+
+from aiogram.fsm.state import StatesGroup, State
+
+class ManageAdminsFSM(StatesGroup):
+    choosing_action = State()
+    entering_user_id = State()
+
+
+@router.message(F.text == "👑 Управление админами")
+async def start_manage_admins(message: Message, state: FSMContext):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="➕ Добавить админа", callback_data="add_admin")],
+        [InlineKeyboardButton(text="➖ Удалить админа", callback_data="remove_admin")]
+    ])
+    await message.answer("Выберите действие:", reply_markup=kb)
+    await state.set_state(ManageAdminsFSM.choosing_action)
+
+
+@router.callback_query(F.data.in_(["add_admin", "remove_admin"]))
+async def ask_for_user_id(callback: CallbackQuery, state: FSMContext):
+    await state.update_data(action=callback.data)
+    await callback.message.answer("Введите ID пользователя:")
+    await state.set_state(ManageAdminsFSM.entering_user_id)
+    await callback.answer()
+
+
+@router.message(ManageAdminsFSM.entering_user_id)
+async def process_admin_update(message: Message, state: FSMContext):
+    user_id = message.text.strip()
+    if not user_id.isdigit():
+        await message.answer("❗ Введите корректный числовой ID.")
+        return
+
+    user_id = int(user_id)
+    data = await state.get_data()
+    action = data.get("action")
+
+    db = load_data()
+    admins = db.setdefault("admins", [])
+
+    if action == "add_admin":
+        if user_id in admins:
+            await message.answer("⚠ Этот пользователь уже админ.")
+        else:
+            admins.append(user_id)
+            save_data(db)
+            await message.answer(f"✅ Пользователь {user_id} добавлен в админы.")
+
+    elif action == "remove_admin":
+        if user_id not in admins:
+            await message.answer("⚠ Этого пользователя нет в списке админов.")
+        else:
+            admins.remove(user_id)
+            save_data(db)
+            await message.answer(f"✅ Пользователь {user_id} удалён из админов.")
+
+    await state.clear()
