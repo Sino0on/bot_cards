@@ -22,15 +22,15 @@ def get_keyboard_buttons(user_id: int = None):
 
     if check_admin(user_id):
         buttons.append([
-            KeyboardButton(text="🧠 Добавить менеджера"),
+            # KeyboardButton(text="🧠 Добавить менеджера"),
             KeyboardButton(text="👨‍💼 Операторы"),
-            KeyboardButton(text="⚙️ Настройки системы"),
+            # KeyboardButton(text="⚙️ Настройки системы"),
             KeyboardButton(text="🔄 Сброс баланса")
         ])
         buttons.append([
             KeyboardButton(text="💬 Чаты"),  # управление чатами
             KeyboardButton(text="⚙️ Настройки чата"),
-            KeyboardButton(text="💸 Отправка денег в шоп"),
+            # KeyboardButton(text="💸 Отправка денег в шоп"),
             KeyboardButton(text="👑 Управление админами")
         ])
 
