@@ -92,7 +92,6 @@ async def start_add_operator(message: Message, state: FSMContext):
 
     buttons = [
         [KeyboardButton(text=chat["name"])] for chat in get_chats_with_names()
-
     ]
     buttons.append([KeyboardButton(text="❌ Отмена")])
 
@@ -1040,7 +1039,7 @@ async def start_reset_balance(message: Message, state: FSMContext):
 
     buttons = [
         [InlineKeyboardButton(
-            text=f"{m.get('name', 'Без имени')} ({m['id']}) - 💸 {m['balance']} сом",
+            text=f"{m.get('name', 'Без имени')} ({m['id']}) - 💸 {m['balance']}$",
             callback_data=f"resetbal:{m['id']}"
         )] for m in managers
     ]
@@ -1067,7 +1066,7 @@ async def reset_operator_balance(callback: CallbackQuery, state: FSMContext):
 
     save_data(data)
 
-    await callback.message.answer(f"✅ Баланс у оператора <b>{manager.get('name')}</b> успешно сброшен.\n 💸Баланс - {manager.get('balance')}",
+    await callback.message.answer(f"✅ Баланс у оператора <b>{manager.get('name')}</b> успешно сброшен.\n 💸Баланс - {manager.get('balance')}$",
                                   parse_mode="HTML")
     await callback.answer()
     await state.clear()
