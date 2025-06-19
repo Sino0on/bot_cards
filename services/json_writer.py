@@ -121,6 +121,7 @@ def delete_card_for_manager(user_id, card_number):
 def delete_manager_by_id(manager_id):
     data = load_data()
     updated = [m for m in data["managers"] if m["id"] != manager_id]
+    print([m for m in data["managers"] if m["id"] == manager_id])
 
     if len(updated) == len(data["managers"]):
         return False  # не найден

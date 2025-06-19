@@ -318,7 +318,7 @@ async def choose_operator_to_delete(message: Message):
 @router.callback_query(F.data.startswith("delmgr_"))
 async def delete_operator(callback: CallbackQuery):
     operator_id = callback.data.split("_")[1]
-    success = delete_manager_by_id(operator_id)
+    success = delete_manager_by_id(int(operator_id))
 
     if success:
         await callback.message.answer(f"✅ Оператор {operator_id} удалён.")

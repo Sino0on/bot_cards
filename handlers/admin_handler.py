@@ -1040,7 +1040,7 @@ async def start_reset_balance(message: Message, state: FSMContext):
 
     buttons = [
         [InlineKeyboardButton(
-            text=f"{m.get('name', 'Без имени')} ({m['id']})",
+            text=f"{m.get('name', 'Без имени')} ({m['id']}) - 💸 {m['balance']} сом",
             callback_data=f"resetbal:{m['id']}"
         )] for m in managers
     ]
@@ -1067,7 +1067,7 @@ async def reset_operator_balance(callback: CallbackQuery, state: FSMContext):
 
     save_data(data)
 
-    await callback.message.answer(f"✅ Баланс у оператора <b>{manager.get('name')}</b> успешно сброшен.",
+    await callback.message.answer(f"✅ Баланс у оператора <b>{manager.get('name')}</b> успешно сброшен.\n 💸Баланс - {manager.get('balance')}",
                                   parse_mode="HTML")
     await callback.answer()
     await state.clear()
@@ -1128,4 +1128,78 @@ async def process_admin_update(message: Message, state: FSMContext):
             save_data(db)
             await message.answer(f"✅ Пользователь {user_id} удалён из админов.")
 
+    await state.clear()
+
+
+class DeleteInvoiceFSM(StatesGroup):
+    choosing_chat = State()
+    choosing_invoice = State()
+
+
+@router.message(F.text == "🗑 Удалить инвойс")
+async def start_invoice_delete(message: Message, state: FSMContext):
+    from services.json_writer import get_all_chats
+
+    chats = get_all_chats()
+    if not chats:
+        await message.answer("❗ Нет чатов.")
+        return
+
+    buttons = [
+        [InlineKeyboardButton(text=chat["name"], callback_data=f"delinv_chat:{chat['id']}")]
+        for chat in chats
+    ]
+
+    await message.answer("Выберите чат:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await state.set_state(DeleteInvoiceFSM.choosing_chat)
+
+
+@router.callback_query(F.data.startswith("delinv_chat:"))
+async def list_invoices(callback: CallbackQuery, state: FSMContext):
+    chat_id = int(callback.data.split(":")[1])
+    from services.json_writer import get_chat_by_id
+
+    chat = get_chat_by_id(chat_id)
+    txs = chat.get("transactions", [])
+    if not txs:
+        await callback.answer("Нет активных инвойсов.", show_alert=True)
+        await state.clear()
+        return
+
+    await state.update_data(chat_id=chat_id)
+    buttons = []
+
+    for i, tx in enumerate(txs):
+        short = f"{tx['money']} сом, карта ...{tx['card'][-4:]}"
+        buttons.append([
+            InlineKeyboardButton(text=short, callback_data=f"delinv_tx:{i}")
+        ])
+
+    await callback.message.answer("Выберите инвойс для удаления:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+    await state.set_state(DeleteInvoiceFSM.choosing_invoice)
+    await callback.answer()
+
+
+
+@router.callback_query(F.data.startswith("delinv_tx:"))
+async def delete_invoice(callback: CallbackQuery, state: FSMContext):
+    from services.json_writer import load_data, save_data
+
+    index = int(callback.data.split(":")[1])
+    data = await state.get_data()
+    chat_id = data["chat_id"]
+
+    db = load_data()
+    for chat in db.get("chats", []):
+        if chat["id"] == chat_id:
+            if index >= len(chat.get("transactions", [])):
+                await callback.answer("Инвойс не найден", show_alert=True)
+                await state.clear()
+                return
+            tx = chat["transactions"].pop(index)
+            save_data(db)
+            await callback.message.answer(f"✅ Инвойс на {tx['money']} сом с карты ...{tx['card'][-4:]} удалён.")
+            break
+
+    await callback.answer()
     await state.clear()

@@ -25,7 +25,8 @@ def get_keyboard_buttons(user_id: int = None):
             # KeyboardButton(text="🧠 Добавить менеджера"),
             KeyboardButton(text="👨‍💼 Операторы"),
             # KeyboardButton(text="⚙️ Настройки системы"),
-            KeyboardButton(text="🔄 Сброс баланса")
+            KeyboardButton(text="🔄 Сброс баланса"),
+            KeyboardButton(text="🗑 Удалить инвойс")
         ])
         buttons.append([
             KeyboardButton(text="💬 Чаты"),  # управление чатами
