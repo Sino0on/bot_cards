@@ -33,12 +33,12 @@ class AcceptMoney(StatesGroup):
 # Клавиатура
 keyboard = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🧠 Добавить менеджера")]
+        [KeyboardButton(text="🧠 Добавить оператора")]
     ],
     resize_keyboard=True
 )
 
-@router.message(F.text == "🧠 Добавить менеджера")
+@router.message(F.text == "🧠 Добавить оператора")
 async def ask_for_id(message: Message, state: FSMContext):
     await message.answer("Введите ID нового менеджера:", reply_markup=ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="❌ Отмена")]],
@@ -272,7 +272,7 @@ async def operator_menu(message: Message):
 
     kb = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="➕ Добавить оператора")],
+            [KeyboardButton(text="🧠 Добавить оператора")],
             [KeyboardButton(text="❌ Удалить оператора")],
             [KeyboardButton(text="📋 Все операторы")],
             [KeyboardButton(text="🔙 Назад")]
